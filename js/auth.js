@@ -25,7 +25,6 @@ const Auth = {
     if (!u) return false;
     const perms = {
       Admin:   ['kpi','kpi_manage','filters','filters_manage','images','users','master_data','logs','download'],
-      Manager: ['kpi','filters','images','surveys_manage','master_data','logs','download'],
       Regular: ['kpi_limited','filters','surveys_respond','download_limited'],
     };
     return (perms[u.role] || []).includes(action);

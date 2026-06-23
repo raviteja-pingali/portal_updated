@@ -9,15 +9,15 @@ const MARKETS = [
 
 const USERS = [
   { id:'u1',  name:'Alice Morgan',    email:'alice@corp.com',   role:'Admin',   market:'m1', status:'Active',   lastLogin:'2026-05-16 09:14' },
-  { id:'u2',  name:'Ben Clarke',      email:'ben@corp.com',     role:'Manager', market:'m1', status:'Active',   lastLogin:'2026-05-16 10:22' },
+  { id:'u2',  name:'Ben Clarke',      email:'ben@corp.com',     role:'Regular', market:'m1', status:'Active',   lastLogin:'2026-05-16 10:22' },
   { id:'u3',  name:'Chloe Davis',     email:'chloe@corp.com',   role:'Regular', market:'m1', status:'Active',   lastLogin:'2026-05-15 14:05' },
   { id:'u4',  name:'Daniel Evans',    email:'daniel@corp.com',  role:'Regular', market:'m1', status:'Active',   lastLogin:'2026-05-14 08:30' },
   { id:'u5',  name:'Emma Foster',     email:'emma@corp.com',    role:'Regular', market:'m1', status:'Inactive', lastLogin:'2026-05-10 11:00' },
   { id:'u6',  name:'Frank Green',     email:'frank@corp.com',   role:'Admin',   market:'m2', status:'Active',   lastLogin:'2026-05-16 08:55' },
-  { id:'u7',  name:'Grace Hall',      email:'grace@corp.com',   role:'Manager', market:'m2', status:'Active',   lastLogin:'2026-05-16 09:40' },
+  { id:'u7',  name:'Grace Hall',      email:'grace@corp.com',   role:'Regular', market:'m2', status:'Active',   lastLogin:'2026-05-16 09:40' },
   { id:'u8',  name:'Henry King',      email:'henry@corp.com',   role:'Regular', market:'m2', status:'Active',   lastLogin:'2026-05-15 16:20' },
   { id:'u9',  name:'Isla Lee',        email:'isla@corp.com',    role:'Admin',   market:'m3', status:'Active',   lastLogin:'2026-05-16 07:30' },
-  { id:'u10', name:'James Mann',      email:'james@corp.com',   role:'Manager', market:'m3', status:'Active',   lastLogin:'2026-05-16 11:15' },
+  { id:'u10', name:'James Mann',      email:'james@corp.com',   role:'Regular', market:'m3', status:'Active',   lastLogin:'2026-05-16 11:15' },
   { id:'u11', name:'Karen Nash',      email:'karen@corp.com',   role:'Regular', market:'m3', status:'Active',   lastLogin:'2026-05-15 13:45' },
   { id:'u12', name:'Leo Owen',        email:'leo@corp.com',     role:'Admin',   market:'m4', status:'Active',   lastLogin:'2026-05-16 10:05' },
 ];

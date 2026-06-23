@@ -74,14 +74,14 @@ const App = {
       .filter(t => t.type === 'custom' && t.enabled)
       .map(t => ({ id: `rpt-${t.id}`, label: t.name, icon: '📑', roles: ['Admin','Manager','Regular'] }));
     const all = [
-      { id:'dashboard',          label:'Dashboard',        icon:'📊', roles:['Admin','Manager','Regular'] },
-      { id:'master-data',        label:'Master Data',       icon:'🗃️',  roles:['Admin','Manager'] },
-      ...(builtinOn('store') ? [{ id:'store-report', label:'Store Report', icon:'🏪', roles:['Admin','Manager','Regular'] }] : []),
-      ...(builtinOn('asset') ? [{ id:'asset-report', label:'Asset Report', icon:'📦', roles:['Admin','Manager','Regular'] }] : []),
-      ...(builtinOn('sku')   ? [{ id:'sku-report',   label:'SKU Report',   icon:'🏷️',  roles:['Admin','Manager','Regular'] }] : []),
-      { id:'image-repo',         label:'Image Repository',  icon:'🖼️',  roles:['Admin','Manager'] },
+      { id:'dashboard',          label:'Dashboard',        icon:'📊', roles:['Admin','Regular'] },
+      { id:'master-data',        label:'Master Data',       icon:'🗃️',  roles:['Admin'] },
+      ...(builtinOn('store') ? [{ id:'store-report', label:'Store Report', icon:'🏪', roles:['Admin','Regular'] }] : []),
+      ...(builtinOn('asset') ? [{ id:'asset-report', label:'Asset Report', icon:'📦', roles:['Admin','Regular'] }] : []),
+      ...(builtinOn('sku')   ? [{ id:'sku-report',   label:'SKU Report',   icon:'🏷️',  roles:['Admin','Regular'] }] : []),
+      { id:'image-repo',         label:'Image Repository',  icon:'🖼️',  roles:['Admin'] },
       { id:'users',              label:'User Management',    icon:'👥', roles:['Admin'] },
-      { id:'logs',               label:'Logs',               icon:'📜', roles:['Admin','Manager'] },
+      { id:'logs',               label:'Logs',               icon:'📜', roles:['Admin'] },
       { id:'report-management',  label:'Report Templates',   icon:'⚙️',  roles:['Admin'] },
       ...customNav,
     ];
@@ -92,7 +92,7 @@ const App = {
   renderShell() {
     const u = Auth.current();
     if (!u) { window.location.href = 'index.html'; return; }
-    const roleBg = { Admin:'bg-blue-600', Manager:'bg-purple-600', Regular:'bg-green-600' };
+    const roleBg = { Admin:'bg-blue-600', Regular:'bg-green-600' };
     document.getElementById('root').innerHTML = `
     <div class="flex h-screen overflow-hidden bg-gray-100">
       <aside class="w-56 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">

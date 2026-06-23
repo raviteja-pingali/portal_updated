@@ -24,7 +24,7 @@ const Pages = {
     const fraudCt     = flaggedImgs.length;
     const fraudRate   = Math.round(fraudCt / Math.max(1, totalImg) * 100);
 
-    const roleGreet = { Admin: 'Portal Admin', Manager: 'Area Manager', Regular: 'Sales Representative' }[u.role] || u.role;
+    const roleGreet = { Admin: 'Portal Admin', Regular: 'Sales Representative' }[u.role] || u.role;
 
     // KPI comparison deltas (mock previous-period values for UI demonstration)
     const prevComp  = (parseFloat(avgComp) - pct(-2.5, 2.5)).toFixed(1);
@@ -997,7 +997,7 @@ const Pages = {
   },
 
   _renderUserTable() {
-    const roleBadge = r => r==='Admin' ? Utils.badge(r,'info') : r==='Manager' ? Utils.badge(r,'warning') : Utils.badge(r,'default');
+    const roleBadge = r => r==='Admin' ? Utils.badge(r,'info') : Utils.badge(r,'default');
     const cols = [
       { label:'Name',       key:'name',      sortable:true },
       { label:'Email',      key:'email',     sortable:true },
@@ -1040,7 +1040,7 @@ const Pages = {
   changeRole(id) {
     const user = Data.USERS.find(u => u.id === id);
     if (!user) return;
-    const roles = ['Regular', 'Manager', 'Admin'];
+    const roles = ['Regular', 'Admin'];
     user.role = roles[(roles.indexOf(user.role) + 1) % 3];
     document.getElementById('userTable').innerHTML = Pages._renderUserTable();
     Utils.toast(`${user.name} role changed to ${user.role}`, 'info');
