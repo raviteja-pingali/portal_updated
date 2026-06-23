@@ -169,6 +169,19 @@ const IMAGE_GALLERY = Array.from({length:40}, (_,i) => {
   };
 });
 
+const LOGS = [
+  { id:'lg1',  type:'Excel Download', user:'Alice Morgan',  detail:'Store Report – All regions, May 2026', size:'2.1 MB', ts:'2026-05-17 09:02', status:'Complete' },
+  { id:'lg2',  type:'Excel Download', user:'Ben Clarke',    detail:'SKU Report – Coca-Cola, May 2026',      size:'850 KB',ts:'2026-05-17 08:44', status:'Complete' },
+  { id:'lg3',  type:'Survey Push',    user:'Ben Clarke',    detail:'Q2 Shelf Compliance – 2 users',          size:'—',     ts:'2026-05-16 14:30', status:'Delivered' },
+  { id:'lg4',  type:'Excel Download', user:'Alice Morgan',  detail:'Image Quality Report – May 2026',        size:'—',     ts:'2026-05-16 11:15', status:'Failed' },
+  { id:'lg5',  type:'Excel Download', user:'Ben Clarke',    detail:'Asset Report – PepsiCo, May 2026',       size:'1.4 MB',ts:'2026-05-15 16:55', status:'Complete' },
+  { id:'lg6',  type:'Survey Push',    user:'Ben Clarke',    detail:'Merchandising Feedback – 3 users',       size:'—',     ts:'2026-05-15 09:10', status:'Delivered' },
+  { id:'lg7',  type:'Excel Download', user:'Chloe Davis',   detail:'My Store Report – Oxford Street',        size:'320 KB',ts:'2026-05-14 13:22', status:'Complete' },
+  { id:'lg8',  type:'Excel Download', user:'Alice Morgan',  detail:'Store Report – US regions',              size:'1.1 MB',ts:'2026-05-13 10:45', status:'Complete' },
+  { id:'lg9',  type:'Other',          user:'System',        detail:'Market data sync – 18 stores refreshed', size:'—',    ts:'2026-05-13 06:00', status:'Complete' },
+  { id:'lg10', type:'Excel Download', user:'Ben Clarke',    detail:'Logs Report export',                     size:'95 KB', ts:'2026-05-12 15:30', status:'Complete' },
+];
+
 // Dashboard KPI trend (last 14 days)
 const TREND_DATES = Array.from({length:14},(_,i)=>{
   const d=new Date('2026-05-17'); d.setDate(d.getDate()-13+i);
