@@ -7,7 +7,8 @@ const App = {
   pageSize:        100,
   sortKey:         null,
   sortDir:         'asc',
-  dashPeriod:      7,
+  dashPeriod:      '7D',
+  dashComparison:  'prior',
   currentFilters:  [],
   renderFilter:    null,
   currentTemplate: null,
@@ -199,8 +200,13 @@ const App = {
   },
 
   // ─── Dashboard period ───────────────────────────────────────────────────────
-  setDashPeriod(days) {
-    this.dashPeriod = days;
+  setDashPeriod(key) {
+    this.dashPeriod = key;
+    this.navigate('dashboard');
+  },
+
+  setDashComparison(mode) {
+    this.dashComparison = mode;
     this.navigate('dashboard');
   },
 

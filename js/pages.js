@@ -3,101 +3,128 @@
 const Pages = {
 
   // ─── Dashboard ─────────────────────────────────────────────────────────────
+
+  // Compute current period date range from a period key
+  _getPeriodRange(key) {
+    const anchor = new Date('2026-05-17');
+    const fmt = d => d.toISOString().slice(0, 10);
+    if (key === '7D')  { const s = new Date(anchor); s.setDate(anchor.getDate()-6);  return { startStr:fmt(s), endStr:fmt(anchor), days:7,  label:'Last 7 days' }; }
+    if (key === '30D') { const s = new Date(anchor); s.setDate(anchor.getDate()-29); return { startStr:fmt(s), endStr:fmt(anchor), days:30, label:'Last 30 days' }; }
+    if (key === 'WTD') {
+      const dow = anchor.getDay(); // 0=Sun
+      const sinceMonday = dow === 0 ? 6 : dow - 1;
+      const s = new Date(anchor); s.setDate(anchor.getDate() - sinceMonday);
+      return { startStr:fmt(s), endStr:fmt(anchor), days:sinceMonday+1, label:'Week to date' };
+    }
+    if (key === 'MTD') {
+      const s = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+      return { startStr:fmt(s), endStr:fmt(anchor), days:anchor.getDate(), label:'Month to date' };
+    }
+    if (key === 'YTD') {
+      const s = new Date(anchor.getFullYear(), 0, 1);
+      const days = Math.floor((anchor - s) / 86400000) + 1;
+      return { startStr:fmt(s), endStr:fmt(anchor), days, label:'Year to date' };
+    }
+    const s = new Date(anchor); s.setDate(anchor.getDate()-6);
+    return { startStr:fmt(s), endStr:fmt(anchor), days:7, label:'Last 7 days' };
+  },
+
+  // Compute comparison period date range
+  _getComparisonRange(curr, mode) {
+    const fmt = d => d.toISOString().slice(0, 10);
+    if (mode === 'sply') {
+      const s = new Date(curr.startStr); s.setFullYear(s.getFullYear()-1);
+      const e = new Date(curr.endStr);   e.setFullYear(e.getFullYear()-1);
+      return { startStr:fmt(s), endStr:fmt(e), days:curr.days, label:'Same period last year' };
+    }
+    const e = new Date(curr.startStr); e.setDate(e.getDate()-1);
+    const s = new Date(e); s.setDate(e.getDate() - curr.days + 1);
+    return { startStr:fmt(s), endStr:fmt(e), days:curr.days, label:'Prior period' };
+  },
+
   dashboard() {
-    const u      = Auth.current();
-    const stores = Auth.marketStores();
-    const period = App.dashPeriod;
-    const scale  = period / 14;
-    const kpis   = Data.STORE_KPIS;
+    const u        = Auth.current();
+    const stores   = Auth.marketStores();
+    const periodKey = App.dashPeriod;
+    const compMode  = App.dashComparison;
+    const kpis      = Data.STORE_KPIS;
 
-    const avgComp  = (kpis.reduce((a, k) => a + k.compliance_pct, 0) / kpis.length).toFixed(1);
+    // Date ranges
+    const curr = Pages._getPeriodRange(periodKey);
+    const prev = Pages._getComparisonRange(curr, compMode);
 
-    // Period-filtered image stats — used for all dashboard image numbers so they stay consistent
-    const periodEndStr   = '2026-05-17';
-    const _pStart = new Date('2026-05-17');
-    _pStart.setDate(_pStart.getDate() - period + 1);
-    const periodStartStr = _pStart.toISOString().slice(0, 10);
-    const periodImgs  = Data.IMAGE_GALLERY.filter(i => i.visit_date >= periodStartStr && i.visit_date <= periodEndStr);
+    // Image stats — current period
+    const periodImgs  = Data.IMAGE_GALLERY.filter(i => i.visit_date >= curr.startStr && i.visit_date <= curr.endStr);
     const flaggedImgs = periodImgs.filter(i => i.fraud_types.length > 0);
     const cleanImgs   = periodImgs.filter(i => i.fraud_types.length === 0);
     const totalImg    = periodImgs.length;
     const fraudCt     = flaggedImgs.length;
-    const fraudRate   = Math.round(fraudCt / Math.max(1, totalImg) * 100);
+
+    // Image stats — comparison period
+    const prevImgs    = Data.IMAGE_GALLERY.filter(i => i.visit_date >= prev.startStr && i.visit_date <= prev.endStr);
+    const prevTotalImg = prevImgs.length;
+    const prevFraudCt  = prevImgs.filter(i => i.fraud_types.length > 0).length;
+
+    // Compliance (KPIs don't have date dimension — use seeded offset for prev)
+    const avgComp   = kpis.reduce((a, k) => a + k.compliance_pct, 0) / kpis.length;
+    const prevComp  = Math.max(50, Math.min(99, avgComp + ((kpis.length % 5) - 2) * 0.9));
+
+    // Active stores
+    const activeStores = stores.filter(s => s.status === 'Active').length;
 
     const roleGreet = { Admin: 'Portal Admin', Regular: 'Sales Representative' }[u.role] || u.role;
 
-    // KPI comparison deltas (mock previous-period values for UI demonstration)
-    const prevComp  = (parseFloat(avgComp) - pct(-2.5, 2.5)).toFixed(1);
-    const compDelta = (parseFloat(avgComp) - parseFloat(prevComp)).toFixed(1);
-    const compSign  = compDelta >= 0 ? '▲' : '▼';
-    const compCls   = compDelta >= 0 ? 'text-green-600' : 'text-red-500';
-    const imgDelta  = rand(-8, 12);
-    const imgSign   = imgDelta >= 0 ? '▲' : '▼';
-    const imgCls    = imgDelta >= 0 ? 'text-green-600' : 'text-red-500';
+    // Delta formatter
+    const fmtDelta = (cur, pre, suffix = '', lowerIsBetter = false) => {
+      const d = cur - pre;
+      const positive = lowerIsBetter ? d < 0 : d >= 0;
+      const s   = d >= 0 ? '▲' : '▼';
+      const cls = positive ? 'text-green-600' : 'text-red-500';
+      const val = Math.abs(Number.isInteger(d) ? d : +d.toFixed(1));
+      return `<span class="${cls} text-xs font-semibold">${s} ${val}${suffix}</span>`;
+    };
 
-    // AI Insights computations
-    const lowCompStores  = kpis.filter(k => k.compliance_pct < 70);
-    const highOosStores  = kpis.filter(k => k.oos_rate > 12);
-    const bestRegionData = [...kpis].sort((a, b) => b.compliance_pct - a.compliance_pct);
-    const bestRegion     = bestRegionData[0]?.region;
-    const worstStore     = [...kpis].sort((a, b) => a.compliance_pct - b.compliance_pct)[0]?.store_name;
-    const aiInsights = [
-      lowCompStores.length > 0
-        ? `<strong>${lowCompStores.length} store${lowCompStores.length !== 1 ? 's' : ''}</strong> below 70% compliance — <em>${worstStore}</em> is the lowest performer.`
-        : 'All stores are above the 70% compliance threshold this period.',
-      `Best performing region: <strong>${bestRegion}</strong> leads on average compliance score.`,
-      highOosStores.length > 0
-        ? `<strong>${highOosStores.length} store${highOosStores.length !== 1 ? 's' : ''}</strong> have OOS rates above 12% — consider priority replenishment visits.`
-        : 'OOS rates are within acceptable thresholds across all stores.',
-      `Image quality: <strong>${fraudRate}%</strong> of images in this period have fraud flags — ${fraudCt} requiring review.`,
-    ];
+    // Store movers
+    const storeMovers = [...kpis].map((k, i) => {
+      const delta = ((i % 7) - 3) * 2.5 + (i % 3 === 0 ? 3 : -1.5);
+      return { ...k, prev_compliance: Math.max(30, Math.min(99, k.compliance_pct - delta)), delta };
+    });
+    const topImproved = [...storeMovers].sort((a, b) => b.delta - a.delta).slice(0, 3);
+    const topDeclined = [...storeMovers].sort((a, b) => a.delta - b.delta).slice(0, 3);
 
+    // Trend data (same length for overlay — regenerated on every render)
+    const currTrend = Data.trendData(curr.days);
+    const prevTrend = Data.trendData(curr.days);
+    Pages._dashData = { curr, prev, currTrend, prevTrend };
 
     // Dashboard widget visibility
     const cfg  = Data.DASHBOARD_CONFIG?.[u.market.id]?.widgets || Data.DASHBOARD_WIDGETS.map(w => w.id);
     const show = id => cfg.includes(id);
 
-    const periodBtns = [7, 14, 30, 90].map(d => `
-      <button onclick="App.setDashPeriod(${d})"
-        class="px-3 py-1.5 text-xs rounded-lg font-medium transition ${d === period
+    // Period selector buttons
+    const periods    = ['7D', '30D', 'WTD', 'MTD', 'YTD'];
+    const periodBtns = periods.map(p => `
+      <button onclick="App.setDashPeriod('${p}')"
+        class="px-3 py-1.5 text-xs rounded-lg font-medium transition ${p === periodKey
           ? 'bg-blue-600 text-white shadow-sm'
-          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">
-        ${d}d
-      </button>`).join('');
+          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">${p}</button>`).join('');
 
-    // Pre-compute trend data for both tabs so afterDashboard uses consistent data
-    const currTrend = Data.trendData(period);
-    const prevTrend = Data.trendData(period);
-    Pages._dashData = { period, currTrend, prevTrend };
+    // Comparison toggle buttons
+    const compBtns = [
+      { key:'prior', label:'Prior Period' },
+      { key:'sply',  label:'Same Period LY' },
+    ].map(c => `
+      <button onclick="App.setDashComparison('${c.key}')"
+        class="px-3 py-1.5 text-xs rounded-lg font-medium transition ${c.key === compMode
+          ? 'bg-indigo-600 text-white shadow-sm'
+          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">${c.label}</button>`).join('');
 
-    // Comparison period totals
-    const cVisits  = currTrend.visits.reduce((a, v) => a + v, 0);
-    const pVisits  = prevTrend.visits.reduce((a, v) => a + v, 0);
-    const cImages  = currTrend.images.reduce((a, v) => a + v, 0);
-    const pImages  = prevTrend.images.reduce((a, v) => a + v, 0);
-    const cFraud   = currTrend.fraud.reduce((a, v) => a + v, 0);
-    const pFraud   = prevTrend.fraud.reduce((a, v) => a + v, 0);
-    const cComp    = parseFloat(avgComp);
-    const pComp    = parseFloat(prevComp);
-    const fmtDelta = (curr, prev, suffix = '') => {
-      const d = curr - prev;
-      const s = d >= 0 ? '▲' : '▼';
-      const cls = d >= 0 ? 'text-green-600' : 'text-red-500';
-      return `<span class="${cls} font-semibold">${s} ${Math.abs(typeof d === 'number' && !Number.isInteger(d) ? d.toFixed(1) : Math.round(d))}${suffix}</span>`;
-    };
-
-    // Store movers: simulate prev-period per-store compliance using seeded offsets
-    const storeMovers = [...kpis].map((k, i) => {
-      const delta = ((i % 7) - 3) * 2.5 + (i % 3 === 0 ? 3 : -1.5);
-      return { ...k, prev_compliance: Math.max(30, Math.min(99, k.compliance_pct - delta)), delta };
-    }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-    const topImproved = [...storeMovers].sort((a, b) => b.delta - a.delta).slice(0, 3);
-    const topDeclined = [...storeMovers].sort((a, b) => a.delta - b.delta).slice(0, 3);
-
-    const tabBtnCls  = (active) => `px-5 py-2.5 text-sm font-medium border-b-2 transition -mb-px ${active ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`;
+    const compLabel = compMode === 'sply' ? 'vs same period last year' : 'vs prior period';
 
     return `
     <div class="space-y-6">
+
+      <!-- Header -->
       <div class="flex items-start justify-between">
         <div>
           <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
@@ -106,59 +133,88 @@ const Pages = {
         <div class="flex flex-col items-end gap-2">
           ${u.role === 'Admin' ? `
           <button onclick="Pages.configureDashboard()"
-            class="text-xs border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition self-end">
+            class="text-xs border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
             ⚙ Customize Dashboard
           </button>` : ''}
-          <div class="flex flex-col items-end gap-1">
-            <span class="text-xs text-gray-400 font-medium">Time frame</span>
-            <div class="flex gap-1">${periodBtns}</div>
-            <span class="text-xs text-gray-400">Last ${period} days ending 17 May 2026</span>
+          <div class="flex flex-col items-end gap-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400 font-medium">Period</span>
+              <div class="flex gap-1">${periodBtns}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400 font-medium">Compare</span>
+              <div class="flex gap-1">${compBtns}</div>
+            </div>
+            <span class="text-xs text-gray-400">${curr.label} ending 17 May 2026 · ${compLabel}</span>
           </div>
         </div>
       </div>
 
-      <!-- Tab navigation -->
-      <div class="flex gap-0 border-b border-gray-200">
-        <button id="dashTab_summary" onclick="Pages._switchDashTab('summary')"
-          class="${tabBtnCls(true)}">📊 Summary</button>
-        <button id="dashTab_comparison" onclick="Pages._switchDashTab('comparison')"
-          class="${tabBtnCls(false)}">⚖️ Comparison</button>
-      </div>
-
-      <!-- ── Summary Tab ── -->
-      <div id="dash_summary" class="space-y-6">
-
+      <!-- KPI Cards -->
       ${show('kpi_cards') ? `
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        ${Utils.kpiCard('🏪', 'Active Stores', stores.filter(s => s.status === 'Active').length, `${stores.length} total in market`, 'blue')}
-        ${Utils.kpiCard('📊', 'Avg Compliance', avgComp + '%', `<span class="${compCls} font-medium">${compSign} ${Math.abs(compDelta)}%</span> vs prev period`, 'green')}
-        ${Utils.kpiCard('📸', 'Images Captured', totalImg.toLocaleString(), `<span class="${imgCls} font-medium">${imgSign} ${Math.abs(imgDelta)}%</span> vs prev period`, 'purple')}
-        ${Utils.kpiCard('🚨', 'Fraud Flags', fraudCt, `${period}d period · ${fraudRate}% of total images`, 'red')}
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div class="flex items-center gap-2 mb-2"><span class="text-lg">🏪</span><p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Active Stores</p></div>
+          <p class="text-2xl font-bold text-gray-800">${activeStores}</p>
+          <p class="text-xs text-gray-400 mt-1">${stores.length} total · ${fmtDelta(activeStores, activeStores, '')} ${compLabel}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div class="flex items-center gap-2 mb-2"><span class="text-lg">📊</span><p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Avg Compliance</p></div>
+          <p class="text-2xl font-bold text-gray-800">${avgComp.toFixed(1)}%</p>
+          <p class="text-xs text-gray-400 mt-1">Prev: ${prevComp.toFixed(1)}% · ${fmtDelta(avgComp, prevComp, '%')} ${compLabel}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div class="flex items-center gap-2 mb-2"><span class="text-lg">📸</span><p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Images Captured</p></div>
+          <p class="text-2xl font-bold text-gray-800">${totalImg.toLocaleString()}</p>
+          <p class="text-xs text-gray-400 mt-1">Prev: ${prevTotalImg} · ${fmtDelta(totalImg, prevTotalImg)} ${compLabel}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div class="flex items-center gap-2 mb-2"><span class="text-lg">🚨</span><p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Fraud Flags</p></div>
+          <p class="text-2xl font-bold text-gray-800">${fraudCt}</p>
+          <p class="text-xs text-gray-400 mt-1">Prev: ${prevFraudCt} · ${fmtDelta(fraudCt, prevFraudCt, '', true)} ${compLabel}</p>
+        </div>
       </div>` : ''}
 
+      <!-- Trend Charts — dual-line current vs previous -->
       ${(show('chart_visits') || show('chart_users') || show('chart_images')) ? `
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         ${show('chart_visits') ? `
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h2 class="text-sm font-semibold text-gray-700 mb-4">Stores Visited — Last ${period} days</h2>
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="text-sm font-semibold text-gray-700">Stores Visited</h2>
+            <div class="flex items-center gap-3 text-xs text-gray-400">
+              <span class="flex items-center gap-1"><span class="w-5 border-t-2 border-blue-500 inline-block"></span>Current</span>
+              <span class="flex items-center gap-1"><span class="w-5 border-t-2 border-dashed border-gray-300 inline-block"></span>Previous</span>
+            </div>
+          </div>
           <canvas id="chartVisits" height="140"></canvas>
         </div>` : ''}
         ${show('chart_users') ? `
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h2 class="text-sm font-semibold text-gray-700 mb-4">Active Users — Last ${period} days</h2>
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="text-sm font-semibold text-gray-700">Active Users</h2>
+            <div class="flex items-center gap-3 text-xs text-gray-400">
+              <span class="flex items-center gap-1"><span class="w-5 border-t-2 border-purple-500 inline-block"></span>Current</span>
+              <span class="flex items-center gap-1"><span class="w-5 border-t-2 border-dashed border-gray-300 inline-block"></span>Previous</span>
+            </div>
+          </div>
           <canvas id="chartUsers" height="140"></canvas>
         </div>` : ''}
         ${show('chart_images') ? `
-        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm cursor-pointer hover:border-blue-300 transition-colors group"
-          onclick="Pages._goToImageQuality()">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-700">Images Captured — Last ${period} days</h2>
-            <span class="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">View report →</span>
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm cursor-pointer hover:border-blue-300 transition-colors group" onclick="Pages._goToImageQuality()">
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="text-sm font-semibold text-gray-700">Images Captured</h2>
+            <div class="flex items-center gap-3 text-xs text-gray-400">
+              <span class="flex items-center gap-1"><span class="w-5 border-t-2 border-indigo-500 inline-block"></span>Current</span>
+              <span class="flex items-center gap-1"><span class="w-5 border-t-2 border-dashed border-gray-300 inline-block"></span>Previous</span>
+              <span class="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">View report →</span>
+            </div>
           </div>
           <canvas id="chartImages" height="140"></canvas>
         </div>` : ''}
       </div>` : ''}
 
+      <!-- Top / Bottom Stores -->
       ${show('top_stores') ? `
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -185,11 +241,43 @@ const Pages = {
         </div>
       </div>` : ''}
 
-      ${show('fraud_breakdown') ? (() => {
-        return `
+      <!-- Store Movers vs previous period -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><span class="text-green-500">▲</span> Most Improved Stores</h2>
+          <div class="space-y-2">
+            ${topImproved.map(k => `
+            <div class="flex items-center justify-between">
+              <button onclick="Pages._goToStore('${k.store_name.replace(/'/g, "\\'")}')"
+                class="text-xs text-blue-600 hover:underline truncate w-44 text-left flex-shrink-0">${k.store_name}</button>
+              <div class="flex items-center gap-3">
+                <span class="text-xs text-gray-400">${k.prev_compliance.toFixed(1)}% → ${k.compliance_pct.toFixed(1)}%</span>
+                <span class="text-green-600 font-semibold text-xs">▲ ${Math.abs(k.delta).toFixed(1)}%</span>
+              </div>
+            </div>`).join('')}
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><span class="text-red-500">▼</span> Most Declined Stores</h2>
+          <div class="space-y-2">
+            ${topDeclined.map(k => `
+            <div class="flex items-center justify-between">
+              <button onclick="Pages._goToStore('${k.store_name.replace(/'/g, "\\'")}')"
+                class="text-xs text-blue-600 hover:underline truncate w-44 text-left flex-shrink-0">${k.store_name}</button>
+              <div class="flex items-center gap-3">
+                <span class="text-xs text-gray-400">${k.prev_compliance.toFixed(1)}% → ${k.compliance_pct.toFixed(1)}%</span>
+                <span class="text-red-500 font-semibold text-xs">▼ ${Math.abs(k.delta).toFixed(1)}%</span>
+              </div>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Image Quality Summary -->
+      ${show('fraud_breakdown') ? (() => `
       <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-semibold text-gray-700">Image Quality Summary <span class="text-xs font-normal text-gray-400 ml-1">Last ${period} days</span></h2>
+          <h2 class="text-sm font-semibold text-gray-700">Image Quality Summary <span class="text-xs font-normal text-gray-400 ml-1">${curr.label}</span></h2>
           <div class="flex items-center gap-4 text-xs text-gray-500">
             <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>${cleanImgs.length} Clean</span>
             <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>${flaggedImgs.length} Flagged</span>
@@ -206,103 +294,7 @@ const Pages = {
             </button>`;
           }).join('')}
         </div>
-      </div>`;
-      })() : ''}
-
-
-      ${show('ai_insights') ? `
-      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="text-lg">🤖</span>
-          <h2 class="text-sm font-semibold text-gray-700">AI Insights</h2>
-          <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Last ${period} days · auto-generated</span>
-        </div>
-        <ul class="space-y-2.5">
-          ${aiInsights.map(insight => `
-          <li class="flex items-start gap-2.5 text-sm text-gray-600">
-            <span class="text-blue-400 mt-0.5 flex-shrink-0">▸</span>
-            <span>${insight}</span>
-          </li>`).join('')}
-        </ul>
-      </div>` : ''}
-
-      </div><!-- /dash_summary -->
-
-      <!-- ── Comparison Tab ── -->
-      <div id="dash_comparison" class="hidden space-y-6">
-
-        <div class="bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 flex items-center gap-3">
-          <span class="text-blue-500 text-lg">⚖️</span>
-          <div>
-            <p class="text-sm font-semibold text-blue-800">Period-over-Period Comparison</p>
-            <p class="text-xs text-blue-500">Current ${period} days vs previous ${period} days · same metrics, same stores</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Avg Compliance</p>
-            <p class="text-2xl font-bold text-gray-800 mt-1">${cComp.toFixed(1)}%</p>
-            <p class="text-xs text-gray-400 mt-1">Prev: ${pComp.toFixed(1)}% · ${fmtDelta(cComp, pComp, '%')}</p>
-          </div>
-          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Store Visits</p>
-            <p class="text-2xl font-bold text-gray-800 mt-1">${cVisits}</p>
-            <p class="text-xs text-gray-400 mt-1">Prev: ${pVisits} · ${fmtDelta(cVisits, pVisits)}</p>
-          </div>
-          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Images Captured</p>
-            <p class="text-2xl font-bold text-gray-800 mt-1">${cImages}</p>
-            <p class="text-xs text-gray-400 mt-1">Prev: ${pImages} · ${fmtDelta(cImages, pImages)}</p>
-          </div>
-          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Fraud Flags</p>
-            <p class="text-2xl font-bold text-gray-800 mt-1">${cFraud}</p>
-            <p class="text-xs text-gray-400 mt-1">Prev: ${pFraud} · ${fmtDelta(cFraud, pFraud)}</p>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h2 class="text-sm font-semibold text-gray-700 mb-4">Store Visits — Current vs Previous Period</h2>
-          <canvas id="chartComparison" height="130"></canvas>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span class="text-green-500">▲</span> Most Improved Stores
-            </h2>
-            <div class="space-y-2">
-              ${topImproved.map(k => `
-              <div class="flex items-center justify-between text-sm">
-                <button onclick="Pages._goToStore('${k.store_name.replace(/'/g, "\\'")}')"
-                  class="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate w-44 text-left flex-shrink-0" title="${k.store_name}">${k.store_name}</button>
-                <div class="flex items-center gap-3">
-                  <span class="text-xs text-gray-400">${k.prev_compliance.toFixed(1)}% → ${k.compliance_pct.toFixed(1)}%</span>
-                  <span class="text-green-600 font-semibold text-xs">▲ ${Math.abs(k.delta).toFixed(1)}%</span>
-                </div>
-              </div>`).join('')}
-            </div>
-          </div>
-          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span class="text-red-500">▼</span> Most Declined Stores
-            </h2>
-            <div class="space-y-2">
-              ${topDeclined.map(k => `
-              <div class="flex items-center justify-between text-sm">
-                <button onclick="Pages._goToStore('${k.store_name.replace(/'/g, "\\'")}')"
-                  class="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate w-44 text-left flex-shrink-0" title="${k.store_name}">${k.store_name}</button>
-                <div class="flex items-center gap-3">
-                  <span class="text-xs text-gray-400">${k.prev_compliance.toFixed(1)}% → ${k.compliance_pct.toFixed(1)}%</span>
-                  <span class="text-red-500 font-semibold text-xs">▼ ${Math.abs(k.delta).toFixed(1)}%</span>
-                </div>
-              </div>`).join('')}
-            </div>
-          </div>
-        </div>
-
-      </div><!-- /dash_comparison -->
+      </div>`)() : ''}
 
     </div><!-- /outer -->
 
@@ -325,92 +317,43 @@ const Pages = {
   },
 
   afterDashboard() {
-    const trend     = Pages._dashData?.currTrend || Data.trendData(App.dashPeriod);
+    const { currTrend, prevTrend } = Pages._dashData || {};
+    if (!currTrend || !window.Chart) return;
+
+    const dualDatasets = (currData, prevData, color) => ([
+      { label:'Current', data:currData, borderColor:color, backgroundColor:color.replace(')',',0.08)').replace('rgb','rgba'),
+        tension:0.4, fill:true, pointRadius:2, pointHoverRadius:4 },
+      { label:'Previous', data:prevData, borderColor:'#CBD5E1', backgroundColor:'transparent',
+        borderDash:[4,3], tension:0.4, pointRadius:2 },
+    ]);
+    const opts = (stepSize) => ({
+      plugins: { legend:{ display:false } },
+      scales:  { y:{ beginAtZero:true, ticks:{ stepSize } } },
+    });
+
     const visitsCtx = document.getElementById('chartVisits');
     const usersCtx  = document.getElementById('chartUsers');
     const imagesCtx = document.getElementById('chartImages');
-    if (!window.Chart) return;
-
-    const smallLegend = { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } };
 
     if (visitsCtx) {
       Chart.getChart(visitsCtx)?.destroy();
-      new Chart(visitsCtx, {
-        type: 'line',
-        data: { labels: trend.dates, datasets: [{ label: 'Stores Visited', data: trend.visits,
-          borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.08)', tension: 0.4, fill: true, pointRadius: 3 }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 5 } } } },
-      });
+      new Chart(visitsCtx, { type:'line',
+        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.visits, prevTrend.visits, '#3B82F6') },
+        options:opts(5) });
     }
     if (usersCtx) {
       Chart.getChart(usersCtx)?.destroy();
-      new Chart(usersCtx, {
-        type: 'line',
-        data: { labels: trend.dates, datasets: [{ label: 'Active Users', data: trend.users,
-          borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,0.08)', tension: 0.4, fill: true, pointRadius: 3 }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 2 } } } },
-      });
+      new Chart(usersCtx, { type:'line',
+        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.users, prevTrend.users, '#8B5CF6') },
+        options:opts(2) });
     }
     if (imagesCtx) {
       Chart.getChart(imagesCtx)?.destroy();
-      const clean = trend.images.map((v, i) => Math.max(0, v - trend.fraud[i]));
-      new Chart(imagesCtx, {
-        type: 'bar',
-        data: {
-          labels: trend.dates,
-          datasets: [
-            { label: 'Clean', data: clean,       backgroundColor: 'rgba(99,102,241,0.75)', borderRadius: 0 },
-            { label: 'Fraud', data: trend.fraud, backgroundColor: 'rgba(239,68,68,0.75)',  borderRadius: 4 },
-          ],
-        },
-        options: {
-          plugins: { legend: smallLegend },
-          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
-        },
-      });
+      new Chart(imagesCtx, { type:'line',
+        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.images, prevTrend.images, '#6366F1') },
+        options:opts(20) });
     }
-    // Restore the tab the user was on before a period change triggered re-render
-    if (Pages._dashTab === 'comparison') this._switchDashTab('comparison');
   },
-
-  _switchDashTab(tab) {
-    Pages._dashTab = tab;
-    const isSummary = tab === 'summary';
-    document.getElementById('dash_summary')?.classList.toggle('hidden', !isSummary);
-    document.getElementById('dash_comparison')?.classList.toggle('hidden', isSummary);
-    const activeCls   = 'px-5 py-2.5 text-sm font-medium border-b-2 border-blue-600 text-blue-600 -mb-px transition';
-    const inactiveCls = 'px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px transition';
-    document.getElementById('dashTab_summary')?.setAttribute('class', isSummary ? activeCls : inactiveCls);
-    document.getElementById('dashTab_comparison')?.setAttribute('class', isSummary ? inactiveCls : activeCls);
-    if (!isSummary) this._renderComparisonCharts();
-  },
-
-  _renderComparisonCharts() {
-    if (!window.Chart || !Pages._dashData) return;
-    const { currTrend, prevTrend } = Pages._dashData;
-    const ctx = document.getElementById('chartComparison');
-    if (!ctx) return;
-    Chart.getChart(ctx)?.destroy();
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: currTrend.dates,
-        datasets: [
-          { label: 'Current Period', data: currTrend.visits,
-            borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.08)',
-            tension: 0.4, fill: true, pointRadius: 3 },
-          { label: 'Previous Period', data: prevTrend.visits,
-            borderColor: '#94A3B8', backgroundColor: 'transparent',
-            borderDash: [4, 3], tension: 0.4, pointRadius: 3 },
-        ],
-      },
-      options: {
-        plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } } },
-        scales: { y: { beginAtZero: true, ticks: { stepSize: 5 } } },
-      },
-    });
-  },
-
   _goToStore(storeName) {
     App.navigate('store-report');
     setTimeout(() => {
