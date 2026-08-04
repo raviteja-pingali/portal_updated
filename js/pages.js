@@ -349,11 +349,11 @@ const Pages = {
     const { currTrend, prevTrend } = Pages._dashData || {};
     if (!currTrend || !window.Chart) return;
 
-    const dualDatasets = (currData, prevData, color) => ([
-      { label:'Current', data:currData, borderColor:color, backgroundColor:color.replace(')',',0.08)').replace('rgb','rgba'),
-        tension:0.4, fill:true, pointRadius:2, pointHoverRadius:4 },
+    const dualDatasets = (currData, prevData, color, fillColor) => ([
+      { label:'Current',  data:currData, borderColor:color,    backgroundColor:fillColor,
+        tension:0.4, fill:true, pointRadius:2, pointHoverRadius:4, borderWidth:2 },
       { label:'Previous', data:prevData, borderColor:'#CBD5E1', backgroundColor:'transparent',
-        borderDash:[4,3], tension:0.4, pointRadius:2 },
+        borderDash:[5,4], tension:0.4, pointRadius:2, fill:false, borderWidth:1.5 },
     ]);
     const opts = (stepSize) => ({
       plugins: { legend:{ display:false } },
@@ -367,19 +367,19 @@ const Pages = {
     if (visitsCtx) {
       Chart.getChart(visitsCtx)?.destroy();
       new Chart(visitsCtx, { type:'line',
-        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.visits, prevTrend.visits, '#3B82F6') },
+        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.visits, prevTrend.visits, '#3B82F6', 'rgba(59,130,246,0.08)') },
         options:opts(5) });
     }
     if (usersCtx) {
       Chart.getChart(usersCtx)?.destroy();
       new Chart(usersCtx, { type:'line',
-        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.users, prevTrend.users, '#8B5CF6') },
+        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.users, prevTrend.users, '#8B5CF6', 'rgba(139,92,246,0.08)') },
         options:opts(2) });
     }
     if (imagesCtx) {
       Chart.getChart(imagesCtx)?.destroy();
       new Chart(imagesCtx, { type:'line',
-        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.images, prevTrend.images, '#6366F1') },
+        data:{ labels:currTrend.dates, datasets:dualDatasets(currTrend.images, prevTrend.images, '#6366F1', 'rgba(99,102,241,0.08)') },
         options:opts(20) });
     }
   },
