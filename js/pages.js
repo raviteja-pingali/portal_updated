@@ -220,22 +220,24 @@ const Pages = {
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <h2 class="text-sm font-semibold text-gray-700 mb-3">Top 5 Stores by Compliance</h2>
           <div class="space-y-3">
-            ${kpis.sort((a, b) => b.compliance_pct - a.compliance_pct).slice(0, 5).map(k => `
+            ${[...storeMovers].sort((a, b) => b.compliance_pct - a.compliance_pct).slice(0, 5).map(k => `
             <div class="flex items-center gap-3">
               <button onclick="Pages._goToStore('${k.store_name.replace(/'/g, "\\'")}')"
-                class="text-xs text-blue-600 hover:text-blue-800 hover:underline w-36 truncate text-left flex-shrink-0" title="${k.store_name}">${k.store_name}</button>
+                class="text-xs text-blue-600 hover:text-blue-800 hover:underline w-28 truncate text-left flex-shrink-0" title="${k.store_name}">${k.store_name}</button>
               ${Utils.scoreBar(k.compliance_pct)}
+              <span class="text-xs font-semibold flex-shrink-0 ${k.delta >= 0 ? 'text-green-600' : 'text-red-500'}">${k.delta >= 0 ? '▲' : '▼'} ${Math.abs(k.delta).toFixed(1)}%</span>
             </div>`).join('')}
           </div>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <h2 class="text-sm font-semibold text-gray-700 mb-3">Stores Needing Attention</h2>
           <div class="space-y-3">
-            ${kpis.sort((a, b) => a.compliance_pct - b.compliance_pct).slice(0, 5).map(k => `
+            ${[...storeMovers].sort((a, b) => a.compliance_pct - b.compliance_pct).slice(0, 5).map(k => `
             <div class="flex items-center gap-3">
               <button onclick="Pages._goToStore('${k.store_name.replace(/'/g, "\\'")}')"
-                class="text-xs text-blue-600 hover:text-blue-800 hover:underline w-36 truncate text-left flex-shrink-0" title="${k.store_name}">${k.store_name}</button>
+                class="text-xs text-blue-600 hover:text-blue-800 hover:underline w-28 truncate text-left flex-shrink-0" title="${k.store_name}">${k.store_name}</button>
               ${Utils.scoreBar(k.compliance_pct)}
+              <span class="text-xs font-semibold flex-shrink-0 ${k.delta >= 0 ? 'text-green-600' : 'text-red-500'}">${k.delta >= 0 ? '▲' : '▼'} ${Math.abs(k.delta).toFixed(1)}%</span>
             </div>`).join('')}
           </div>
         </div>
@@ -274,27 +276,57 @@ const Pages = {
       </div>
 
       <!-- Image Quality Summary -->
-      ${show('fraud_breakdown') ? (() => `
+      ${show('fraud_breakdown') ? (() => {
+        const prevCleanCt   = prevImgs.filter(i => i.fraud_types.length === 0).length;
+        const prevFlaggedCt = prevImgs.filter(i => i.fraud_types.length > 0).length;
+        return `
       <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-semibold text-gray-700">Image Quality Summary <span class="text-xs font-normal text-gray-400 ml-1">${curr.label}</span></h2>
-          <div class="flex items-center gap-4 text-xs text-gray-500">
-            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>${cleanImgs.length} Clean</span>
-            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>${flaggedImgs.length} Flagged</span>
-            <button onclick="App.navigate('image-repo')" class="text-blue-500 hover:underline">${totalImg} total →</button>
+          <h2 class="text-sm font-semibold text-gray-700">Image Quality Summary</h2>
+          <button onclick="App.navigate('image-repo')" class="text-blue-500 text-xs hover:underline">View all →</button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <span class="text-xs font-semibold text-gray-600">${curr.label}</span>
+              <span class="flex items-center gap-1 text-xs text-gray-500"><span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>${cleanImgs.length} Clean</span>
+              <span class="flex items-center gap-1 text-xs text-gray-500"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>${flaggedImgs.length} Flagged</span>
+              <span class="text-xs text-gray-400">${totalImg} total</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${Data.FRAUD_TYPES.map(ft => {
+                const ct  = periodImgs.filter(i => i.fraud_types.includes(ft)).length;
+                const pct = prevImgs.filter(i => i.fraud_types.includes(ft)).length;
+                if (ct === 0 && pct === 0) return '';
+                const d = ct - pct;
+                const dHtml = d !== 0 ? ` <span class="${d > 0 ? 'text-red-500' : 'text-green-600'} font-semibold">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>` : '';
+                return `<button onclick="Pages._goToImageRepoFraud('${ft}')"
+                  class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition flex items-center gap-1.5">
+                  <span class="font-semibold text-gray-700">${ct}</span><span class="text-gray-500">${ft}</span>${dHtml}
+                </button>`;
+              }).join('')}
+            </div>
+          </div>
+          <div class="border-t border-gray-100 pt-3">
+            <div class="flex items-center gap-3 mb-2">
+              <span class="text-xs font-semibold text-gray-400">${prev.label}</span>
+              <span class="flex items-center gap-1 text-xs text-gray-400"><span class="w-2 h-2 rounded-full bg-green-200 inline-block"></span>${prevCleanCt} Clean</span>
+              <span class="flex items-center gap-1 text-xs text-gray-400"><span class="w-2 h-2 rounded-full bg-red-200 inline-block"></span>${prevFlaggedCt} Flagged</span>
+              <span class="text-xs text-gray-400">${prevImgs.length} total</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${Data.FRAUD_TYPES.map(ft => {
+                const pct = prevImgs.filter(i => i.fraud_types.includes(ft)).length;
+                if (pct === 0) return '';
+                return `<span class="text-xs border border-gray-100 rounded-lg px-3 py-1.5 bg-gray-50 flex items-center gap-1.5 text-gray-400">
+                  <span class="font-semibold">${pct}</span><span>${ft}</span>
+                </span>`;
+              }).join('')}
+            </div>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          ${Data.FRAUD_TYPES.map(ft => {
-            const ct = periodImgs.filter(i => i.fraud_types.includes(ft)).length;
-            if (ct === 0) return '';
-            return `<button onclick="Pages._goToImageRepoFraud('${ft}')"
-              class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition flex items-center gap-1.5">
-              <span class="font-semibold text-gray-700">${ct}</span><span class="text-gray-500">${ft}</span>
-            </button>`;
-          }).join('')}
-        </div>
-      </div>`)() : ''}
+      </div>`;
+      })() : ''}
 
     </div><!-- /outer -->
 
