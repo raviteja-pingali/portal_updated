@@ -44,21 +44,23 @@ const STORES = [
 ];
 
 const PRODUCTS = [
-  { id:'p1',  sku:'CC-001',  name:'Coca-Cola Classic 12oz Can',  brand:'Coca-Cola', category:'Cola',         market:'m1' },
-  { id:'p2',  sku:'CC-002',  name:'Diet Coke 12oz Can',          brand:'Coca-Cola', category:'Cola',         market:'m1' },
-  { id:'p3',  sku:'CC-003',  name:'Sprite 12oz Can',             brand:'Coca-Cola', category:'Lemon-Lime',   market:'m1' },
-  { id:'p4',  sku:'CC-004',  name:'Fanta Orange 12oz Can',       brand:'Coca-Cola', category:'Fruit Soda',   market:'m1' },
-  { id:'p5',  sku:'CC-005',  name:'Powerade Mountain Berry 20oz',brand:'Coca-Cola', category:'Sports Drink', market:'m1' },
-  { id:'p6',  sku:'PEP-001', name:'Pepsi Cola 12oz Can',         brand:'PepsiCo',   category:'Cola',         market:'m1' },
-  { id:'p7',  sku:'PEP-002', name:'Mountain Dew 12oz Can',       brand:'PepsiCo',   category:'Citrus Soda',  market:'m1' },
-  { id:'p8',  sku:'PEP-003', name:'Diet Pepsi 12oz Can',         brand:'PepsiCo',   category:'Cola',         market:'m1' },
-  { id:'p9',  sku:'PEP-004', name:'Gatorade Fruit Punch 20oz',   brand:'PepsiCo',   category:'Sports Drink', market:'m1' },
-  { id:'p10', sku:'PEP-005', name:'Lipton Iced Tea 18.5oz',      brand:'PepsiCo',   category:'Tea',          market:'m1' },
-  { id:'p11', sku:'DRP-001', name:'Dr Pepper 12oz Can',          brand:'Dr Pepper', category:'Cola',         market:'m1' },
-  { id:'p12', sku:'DRP-002', name:'7UP 12oz Can',                brand:'Dr Pepper', category:'Lemon-Lime',   market:'m1' },
-  { id:'p13', sku:'DRP-003', name:'Snapple Peach Tea 16oz',      brand:'Dr Pepper', category:'Tea',          market:'m1' },
-  { id:'p14', sku:'MON-001', name:'Monster Energy Green 16oz',   brand:'Monster',   category:'Energy Drink', market:'m1' },
-  { id:'p15', sku:'RB-001',  name:'Red Bull Energy 8.4oz',       brand:'Red Bull',  category:'Energy Drink', market:'m1' },
+  // Beverages
+  { id:'p1',  sku:'PEP-B001', name:'Pepsi Cola 12oz Can',            brand:'Pepsi',       category:'Cola',          packshot:'https://placehold.co/56x56/003087/FFFFFF?text=Pepsi',     market:'m1' },
+  { id:'p2',  sku:'PEP-B002', name:'Pepsi Zero Sugar 12oz Can',      brand:'Pepsi',       category:'Cola',          packshot:'https://placehold.co/56x56/1a1a2e/FFFFFF?text=Pepsi+0',   market:'m1' },
+  { id:'p3',  sku:'PEP-B003', name:'Mountain Dew 12oz Can',          brand:'Mountain Dew',category:'Citrus Soda',   packshot:'https://placehold.co/56x56/009900/FFFFFF?text=Mtn+Dew',   market:'m1' },
+  { id:'p4',  sku:'PEP-B004', name:'Mountain Dew Code Red 12oz Can', brand:'Mountain Dew',category:'Citrus Soda',   packshot:'https://placehold.co/56x56/CC0000/FFFFFF?text=Code+Red',  market:'m1' },
+  { id:'p5',  sku:'PEP-B005', name:'Gatorade Fruit Punch 28oz',      brand:'Gatorade',    category:'Sports Drink',  packshot:'https://placehold.co/56x56/E8000D/FFFFFF?text=Gatorade',  market:'m1' },
+  { id:'p6',  sku:'PEP-B006', name:'Gatorade Lemon-Lime 28oz',       brand:'Gatorade',    category:'Sports Drink',  packshot:'https://placehold.co/56x56/78BE20/FFFFFF?text=Gatorade',  market:'m1' },
+  { id:'p7',  sku:'PEP-B007', name:'Tropicana Pure Premium OJ 52oz', brand:'Tropicana',   category:'Juice',         packshot:'https://placehold.co/56x56/FF6600/FFFFFF?text=Tropicana', market:'m1' },
+  { id:'p8',  sku:'PEP-B008', name:'Lipton Iced Tea Lemon 18.5oz',   brand:'Lipton',      category:'Tea',           packshot:'https://placehold.co/56x56/BBAA00/000000?text=Lipton',    market:'m1' },
+  { id:'p9',  sku:'PEP-B009', name:'Aquafina Purified Water 20oz',   brand:'Aquafina',    category:'Water',         packshot:'https://placehold.co/56x56/00AACC/FFFFFF?text=Aquafina',  market:'m1' },
+  { id:'p10', sku:'PEP-B010', name:'ROCKSTAR Original Energy 16oz',  brand:'ROCKSTAR',    category:'Energy Drink',  packshot:'https://placehold.co/56x56/FFD700/000000?text=ROCKSTAR',  market:'m1' },
+  // Frito-Lay Snacks
+  { id:'p11', sku:'PEP-S001', name:"Lay's Classic Potato Chips 2.63oz", brand:"Lay's",   category:'Chips',         packshot:'https://placehold.co/56x56/FFD700/000000?text=Lays',      market:'m1' },
+  { id:'p12', sku:'PEP-S002', name:'Doritos Nacho Cheese 2.875oz',   brand:'Doritos',     category:'Tortilla Chips',packshot:'https://placehold.co/56x56/FF4500/FFFFFF?text=Doritos',   market:'m1' },
+  { id:'p13', sku:'PEP-S003', name:'Cheetos Crunchy 3.25oz',         brand:'Cheetos',     category:'Cheese Snacks', packshot:'https://placehold.co/56x56/FF8C00/FFFFFF?text=Cheetos',   market:'m1' },
+  { id:'p14', sku:'PEP-S004', name:'Ruffles Original 2.5oz',         brand:'Ruffles',     category:'Chips',         packshot:'https://placehold.co/56x56/C8102E/FFFFFF?text=Ruffles',   market:'m1' },
+  { id:'p15', sku:'PEP-S005', name:'Tostitos Scoops! Original 10oz', brand:'Tostitos',    category:'Tortilla Chips',packshot:'https://placehold.co/56x56/D4A017/000000?text=Tostitos',  market:'m1' },
 ];
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }

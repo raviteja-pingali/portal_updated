@@ -441,7 +441,7 @@ const Pages = {
     <div class="space-y-6">
       <h1 class="text-2xl font-bold text-gray-800">Master Data</h1>
       <div class="flex gap-2 border-b border-gray-200">
-        ${['Stores', 'Users', 'Products'].map((t, i) => `
+        ${['Stores', 'PEP Products'].map((t, i) => `
         <button onclick="Pages.switchMasterTab(${i})" id="mdTab${i}"
           class="px-4 py-2 text-sm font-medium border-b-2 transition ${i === 0 ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">${t}</button>`).join('')}
       </div>
@@ -450,14 +450,13 @@ const Pages = {
   },
 
   switchMasterTab(idx) {
-    [0, 1, 2].forEach(i => {
+    [0, 1].forEach(i => {
       document.getElementById(`mdTab${i}`).className =
         `px-4 py-2 text-sm font-medium border-b-2 transition ${i === idx ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`;
     });
     const content = {
       0: Pages._storesTable(Auth.marketStores()),
-      1: Pages._usersTable(Auth.marketUsers()),
-      2: Pages._productsTable(Data.PRODUCTS),
+      1: Pages._productsTable(Data.PRODUCTS),
     };
     document.getElementById('mdTabContent').innerHTML = this._mdExportBar(idx) + content[idx];
   },
@@ -494,13 +493,17 @@ const Pages = {
 
   _productsTable(products) {
     const cols = [
+      { label:'Packshot', key:'packshot', sortable:false },
       { label:'SKU', key:'sku', sortable:true },
       { label:'Product Name', key:'name', sortable:true },
       { label:'Brand', key:'brand', sortable:true },
       { label:'Category', key:'category', sortable:true },
     ];
     const rows = products.map(p => Utils.tr([
-      `<span class="font-mono text-xs text-gray-500">${p.sku}</span>`, p.name, p.brand, p.category,
+      `<img src="${p.packshot}" alt="${p.name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy">`,
+      `<span class="font-mono text-xs text-gray-500">${p.sku}</span>`,
+      `<span class="font-medium text-gray-800">${p.name}</span>`,
+      p.brand, p.category,
     ]));
     return Utils.table(cols, rows);
   },
