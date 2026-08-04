@@ -295,14 +295,11 @@ const Pages = {
             </div>
             <div class="flex flex-wrap gap-2">
               ${Data.FRAUD_TYPES.map(ft => {
-                const ct  = periodImgs.filter(i => i.fraud_types.includes(ft)).length;
-                const pct = prevImgs.filter(i => i.fraud_types.includes(ft)).length;
-                if (ct === 0 && pct === 0) return '';
-                const d = ct - pct;
-                const dHtml = d !== 0 ? ` <span class="${d > 0 ? 'text-red-500' : 'text-green-600'} font-semibold">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>` : '';
+                const ct = periodImgs.filter(i => i.fraud_types.includes(ft)).length;
+                if (ct === 0) return '';
                 return `<button onclick="Pages._goToImageRepoFraud('${ft}')"
                   class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition flex items-center gap-1.5">
-                  <span class="font-semibold text-gray-700">${ct}</span><span class="text-gray-500">${ft}</span>${dHtml}
+                  <span class="font-semibold text-gray-700">${ct}</span><span class="text-gray-500">${ft}</span>
                 </button>`;
               }).join('')}
             </div>
