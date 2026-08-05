@@ -319,6 +319,55 @@ MARKETS.forEach(m => {
   };
 });
 
+// ── Model Accuracy Data ────────────────────────────────────────────────────────
+const MODEL_LATEST = {
+  users: 181, store_visits: 2204, images_captured: 6363,
+  accuracy: 88, merch_compliance: 75,
+  accuracy_poor_merch: 64, accuracy_good_merch: 30, non_pepsi_accuracy: 89,
+  inaccuracy_npd: 20, inaccuracy_low_training: 40, inaccuracy_occlusion: 30, inaccuracy_pack_placement: 30,
+};
+
+const MODEL_HISTORY = [
+  { month:'Jun 2025', version:'v1.0', app_accuracy:72, br_accuracy:68, training_images:5000,  new_images:0,   val_set_version:'VS-1', val_set_updated:true,  val_set_note:'Initial validation set — 100 curated images across all SKU types' },
+  { month:'Jul 2025', version:'v1.1', app_accuracy:75, br_accuracy:71, training_images:5800,  new_images:800, val_set_version:'VS-1', val_set_updated:false, val_set_note:'' },
+  { month:'Aug 2025', version:'v1.2', app_accuracy:74, br_accuracy:73, training_images:6500,  new_images:700, val_set_version:'VS-1', val_set_updated:false, val_set_note:'' },
+  { month:'Sep 2025', version:'v1.3', app_accuracy:77, br_accuracy:75, training_images:7200,  new_images:700, val_set_version:'VS-1', val_set_updated:false, val_set_note:'' },
+  { month:'Oct 2025', version:'v1.4', app_accuracy:76, br_accuracy:77, training_images:7800,  new_images:600, val_set_version:'VS-2', val_set_updated:true,  val_set_note:'VS-2: Added 12 new Doritos variants, removed 8 discontinued products' },
+  { month:'Nov 2025', version:'v2.0', app_accuracy:79, br_accuracy:80, training_images:8600,  new_images:800, val_set_version:'VS-2', val_set_updated:false, val_set_note:'' },
+  { month:'Dec 2025', version:'v2.1', app_accuracy:81, br_accuracy:82, training_images:9400,  new_images:800, val_set_version:'VS-2', val_set_updated:false, val_set_note:'' },
+  { month:'Jan 2026', version:'v2.2', app_accuracy:83, br_accuracy:85, training_images:10200, new_images:800, val_set_version:'VS-2', val_set_updated:false, val_set_note:'' },
+  { month:'Feb 2026', version:'v2.3', app_accuracy:85, br_accuracy:87, training_images:11100, new_images:900, val_set_version:'VS-2', val_set_updated:false, val_set_note:'' },
+  { month:'Mar 2026', version:'v2.4', app_accuracy:84, br_accuracy:88, training_images:11800, new_images:700, val_set_version:'VS-3', val_set_updated:true,  val_set_note:'VS-3: 2026 portfolio refresh — Ruffles variants added, Cheetos packaging update' },
+  { month:'Apr 2026', version:'v2.5', app_accuracy:86, br_accuracy:90, training_images:12100, new_images:300, val_set_version:'VS-3', val_set_updated:false, val_set_note:'' },
+  { month:'May 2026', version:'v2.6', app_accuracy:88, br_accuracy:91, training_images:12450, new_images:350, val_set_version:'VS-3', val_set_updated:false, val_set_note:'' },
+];
+
+const SKU_ACCURACY = [
+  { type:'Heavy Solo', brand:'Doritos',    accuracy:52, packshot:'https://placehold.co/40x40/FF4500/FFFFFF?text=HS' },
+  { type:'Sharing',    brand:"Lay's",      accuracy:58, packshot:'https://placehold.co/40x40/FFD700/000000?text=SH' },
+  { type:'Single',     brand:'Cheetos',    accuracy:59, packshot:'https://placehold.co/40x40/FF8C00/FFFFFF?text=SI' },
+  { type:'Non Pep',    brand:'Competitor', accuracy:60, packshot:'https://placehold.co/40x40/94A3B8/FFFFFF?text=NP' },
+  { type:'Heavy Solo', brand:'Ruffles',    accuracy:61, packshot:'https://placehold.co/40x40/C8102E/FFFFFF?text=HS' },
+  { type:'Sharing',    brand:'Doritos',    accuracy:64, packshot:'https://placehold.co/40x40/FF4500/FFFFFF?text=SH' },
+  { type:'Single',     brand:"Lay's",      accuracy:66, packshot:'https://placehold.co/40x40/FFD700/000000?text=SI' },
+  { type:'Multi Pack', brand:'Cheetos',    accuracy:70, packshot:'https://placehold.co/40x40/FF8C00/FFFFFF?text=MP' },
+  { type:'Single',     brand:'Ruffles',    accuracy:73, packshot:'https://placehold.co/40x40/C8102E/FFFFFF?text=SI' },
+  { type:'Sharing',    brand:'Tostitos',   accuracy:76, packshot:'https://placehold.co/40x40/D4A017/000000?text=SH' },
+];
+
+const ASSET_ACCURACY = [
+  { name:'Aisle',               accuracy:49 },
+  { name:'Gondola',             accuracy:55 },
+  { name:'Rack 50 CM',          accuracy:57 },
+  { name:'Rack 70 CM',          accuracy:58 },
+  { name:'Rack 97 CM',          accuracy:59 },
+  { name:'End Cap',             accuracy:63 },
+  { name:'Floor Stand',         accuracy:67 },
+  { name:'Cold Vault',          accuracy:71 },
+  { name:'Checkout Cooler',     accuracy:74 },
+  { name:'Freestanding Cooler', accuracy:78 },
+];
+
 const Data = {
   MARKETS, USERS, STORES, PRODUCTS,
   STORE_KPIS, ASSET_KPIS, SKU_KPIS,
@@ -328,4 +377,5 @@ const Data = {
   AVAILABLE_COLUMNS, AVAILABLE_FILTERS, REPORT_TEMPLATES,
   DASHBOARD_WIDGETS, DASHBOARD_CONFIG,
   FRAUD_TYPES,
+  MODEL_LATEST, MODEL_HISTORY, SKU_ACCURACY, ASSET_ACCURACY,
 };

@@ -80,6 +80,7 @@ const App = {
       ...(builtinOn('store') ? [{ id:'store-report', label:'Store Report', icon:'🏪', roles:['Admin','Regular'] }] : []),
       ...(builtinOn('asset') ? [{ id:'asset-report', label:'Asset Report', icon:'📦', roles:['Admin','Regular'] }] : []),
       ...(builtinOn('sku')   ? [{ id:'sku-report',   label:'SKU Report',   icon:'🏷️',  roles:['Admin','Regular'] }] : []),
+      { id:'model-accuracy',      label:'Accuracy Reports',  icon:'🎯', roles:['Admin','Regular'] },
       { id:'image-repo',         label:'Image Repository',  icon:'🖼️',  roles:['Admin'] },
       { id:'users',              label:'User Management',    icon:'👥', roles:['Admin'] },
       { id:'logs',               label:'Logs',               icon:'📜', roles:['Admin'] },
@@ -182,6 +183,7 @@ const App = {
       'store-report':       () => Pages.storeReport(),
       'asset-report':       () => Pages.assetReport(),
       'sku-report':         () => Pages.skuReport(),
+      'model-accuracy':     () => Pages.modelAccuracy(),
       'image-repo':         () => Pages.imageRepository(),
       'users':              () => Pages.userManagement(),
       'logs':               () => Pages.logs(),
@@ -190,11 +192,12 @@ const App = {
     content.innerHTML = renderers[route] ? renderers[route]() : '<p class="text-gray-400">Page not found.</p>';
 
     const afterHooks = {
-      'dashboard':    () => Pages.afterDashboard(),
-      'store-report': () => Pages.afterStoreReport(),
-      'asset-report': () => Pages.afterAssetReport(),
-      'sku-report':   () => Pages.afterSkuReport(),
-      'image-repo':   () => Pages.afterImageRepository(),
+      'dashboard':       () => Pages.afterDashboard(),
+      'store-report':    () => Pages.afterStoreReport(),
+      'asset-report':    () => Pages.afterAssetReport(),
+      'sku-report':      () => Pages.afterSkuReport(),
+      'model-accuracy':  () => Pages.afterModelAccuracy(),
+      'image-repo':      () => Pages.afterImageRepository(),
     };
     if (afterHooks[route]) setTimeout(afterHooks[route], 50);
   },

@@ -1872,6 +1872,322 @@ const Pages = {
     Utils.toast('Report deleted', 'info');
   },
 
+  // ─── Model Accuracy ────────────────────────────────────────────────────────
+  modelAccuracy() {
+    const d   = Data.MODEL_LATEST;
+    const latest = Data.MODEL_HISTORY[Data.MODEL_HISTORY.length - 1];
+    const prev   = Data.MODEL_HISTORY[Data.MODEL_HISTORY.length - 2];
+    const accDelta = latest.app_accuracy - prev.app_accuracy;
+
+    const kpiCard = (value, label, color = 'text-gray-800') =>
+      `<div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div class="text-3xl font-bold ${color}">${value}</div>
+        <div class="text-sm text-gray-500 mt-1">${label}</div>
+      </div>`;
+
+    const skuRows = (Data.SKU_ACCURACY || []).slice(0, 5).map(s => `
+      <tr class="border-b border-gray-50 last:border-0">
+        <td class="py-2 pr-3">
+          <div class="flex items-center gap-2">
+            <img src="${s.packshot}" class="w-8 h-8 rounded object-cover" loading="lazy">
+            <div>
+              <div class="text-xs font-medium text-gray-700">${s.type}</div>
+              <div class="text-xs text-gray-400">${s.brand}</div>
+            </div>
+          </div>
+        </td>
+        <td class="py-2 text-right text-sm font-bold ${s.accuracy < 60 ? 'text-red-500' : s.accuracy < 75 ? 'text-amber-500' : 'text-green-600'}">${s.accuracy}%</td>
+      </tr>`).join('');
+
+    const assetRows = (Data.ASSET_ACCURACY || []).slice(0, 5).map(a => `
+      <tr class="border-b border-gray-50 last:border-0">
+        <td class="py-2 pr-3">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs">📦</div>
+            <span class="text-xs font-medium text-gray-700">${a.name}</span>
+          </div>
+        </td>
+        <td class="py-2 text-right text-sm font-bold ${a.accuracy < 60 ? 'text-red-500' : a.accuracy < 75 ? 'text-amber-500' : 'text-green-600'}">${a.accuracy}%</td>
+      </tr>`).join('');
+
+    const vsUpdateIndices = Data.MODEL_HISTORY.map((v,i) => v.val_set_updated ? i : -1).filter(i => i >= 0);
+
+    const historyRows = [...Data.MODEL_HISTORY].reverse().map(v => `
+      <tr class="border-b border-gray-50 last:border-0 ${v.val_set_updated ? 'bg-amber-50' : ''}">
+        <td class="py-2.5 px-3">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-xs font-semibold text-gray-700">${v.version}</span>
+            ${v.val_set_updated ? `<span class="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-medium">VS Updated · ${v.val_set_version}</span>` : `<span class="text-xs text-gray-400">${v.val_set_version}</span>`}
+          </div>
+          ${v.val_set_updated && v.val_set_note ? `<div class="text-xs text-amber-600 mt-0.5 pl-0.5">${v.val_set_note}</div>` : ''}
+        </td>
+        <td class="py-2.5 px-3 text-xs text-gray-500">${v.month}</td>
+        <td class="py-2.5 px-3 text-xs font-semibold text-rose-500">${v.app_accuracy}%</td>
+        <td class="py-2.5 px-3 text-xs font-semibold text-emerald-600">${v.br_accuracy}%</td>
+        <td class="py-2.5 px-3 text-xs text-gray-500">${v.training_images.toLocaleString()}</td>
+        <td class="py-2.5 px-3 text-xs ${v.new_images > 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}">+${v.new_images.toLocaleString()}</td>
+      </tr>`).join('');
+
+    return `
+    <div class="space-y-5">
+      <!-- Header -->
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-800">Accuracy Reports</h1>
+        <div class="flex items-center gap-2">
+          <span class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full font-semibold">${latest.version} — Latest</span>
+          <span class="text-xs text-gray-400">${latest.month} · ${latest.training_images.toLocaleString()} training images</span>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-4 gap-4">
+        ${kpiCard(d.users.toLocaleString(), 'Users')}
+        ${kpiCard(d.store_visits.toLocaleString(), 'Store Visits')}
+        ${kpiCard(d.images_captured.toLocaleString(), 'Images Captured')}
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex items-start justify-between">
+          <div>
+            <div class="text-3xl font-bold text-amber-500">${d.accuracy}%</div>
+            <div class="text-sm text-gray-500 mt-1">Accuracy</div>
+            <div class="text-xs mt-1 ${accDelta >= 0 ? 'text-green-600' : 'text-red-500'} font-medium">${accDelta >= 0 ? '▲' : '▼'} ${Math.abs(accDelta)}pp vs prev</div>
+          </div>
+          <div class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center text-gray-400 text-xs cursor-default" title="App Accuracy for current period">ⓘ</div>
+        </div>
+      </div>
+
+      <!-- Middle row -->
+      <div class="grid grid-cols-3 gap-4">
+        <!-- SKUs -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-gray-700">SKUs (5/${Data.SKU_ACCURACY.length})</h2>
+          </div>
+          <table class="w-full">
+            <thead><tr class="text-xs text-gray-400 border-b border-gray-100">
+              <th class="pb-2 text-left font-medium">SKU TYPE</th>
+              <th class="pb-2 text-right font-medium">ACCURACY ↓</th>
+            </tr></thead>
+            <tbody>${skuRows}</tbody>
+          </table>
+          <button onclick="Pages._maShowAll('sku')" class="text-xs text-blue-500 hover:underline mt-3">View All</button>
+        </div>
+
+        <!-- Assets -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-gray-700">Assets (5/${Data.ASSET_ACCURACY.length})</h2>
+          </div>
+          <table class="w-full">
+            <thead><tr class="text-xs text-gray-400 border-b border-gray-100">
+              <th class="pb-2 text-left font-medium">ASSET NAME</th>
+              <th class="pb-2 text-right font-medium">ACCURACY ↓</th>
+            </tr></thead>
+            <tbody>${assetRows}</tbody>
+          </table>
+          <button onclick="Pages._maShowAll('asset')" class="text-xs text-blue-500 hover:underline mt-3">View All</button>
+        </div>
+
+        <!-- Accuracy Trends -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col">
+          <h2 class="text-sm font-semibold text-gray-700 mb-3">Accuracy Trends
+            <span class="text-xs font-normal text-gray-400 ml-1">12 months</span>
+          </h2>
+          <div class="flex-1 relative" style="min-height:180px">
+            <canvas id="chartAccTrend"></canvas>
+          </div>
+          <div class="flex gap-4 mt-3 text-xs text-gray-500">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded bg-rose-400 inline-block"></span>App Accuracy</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded bg-emerald-500 inline-block"></span>BR Accuracy</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded bg-amber-400 inline-block border-dashed"></span>VS Updated</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom row -->
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Other Details -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h2 class="text-sm font-semibold text-gray-700 mb-4">Other Details</h2>
+          <div class="grid grid-cols-2 gap-5">
+            <div>
+              <div class="text-2xl font-bold text-gray-800">${d.merch_compliance}%</div>
+              <div class="text-xs text-gray-400 mt-0.5">Merchandising Compliance Accuracy</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800">${d.accuracy_poor_merch}%</div>
+              <div class="text-xs text-gray-400 mt-0.5">Accuracy On Poor Merchandising</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800">${d.accuracy_good_merch}%</div>
+              <div class="text-xs text-gray-400 mt-0.5">Accuracy On Good Merchandising</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800">${d.non_pepsi_accuracy}%</div>
+              <div class="text-xs text-gray-400 mt-0.5">Non-Pepsi Accuracy</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accuracy Components -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h2 class="text-sm font-semibold text-gray-700 mb-4">Accuracy Components</h2>
+          <div class="flex items-center gap-8">
+            <div class="relative flex-shrink-0" style="width:140px;height:140px">
+              <canvas id="chartAccPie"></canvas>
+              <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span class="text-xl font-bold text-gray-800">${d.accuracy}%</span>
+              </div>
+            </div>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-gray-700 mb-3">${100 - d.accuracy}% Inaccuracy Variables</div>
+              <div class="grid grid-cols-2 gap-x-6 gap-y-3">
+                <div><div class="text-xl font-bold text-blue-600">${d.inaccuracy_npd}%</div><div class="text-xs text-gray-500">NPD</div></div>
+                <div><div class="text-xl font-bold text-blue-600">${d.inaccuracy_low_training}%</div><div class="text-xs text-gray-500">SKU with low training data</div></div>
+                <div><div class="text-xl font-bold text-blue-600">${d.inaccuracy_occlusion}%</div><div class="text-xs text-gray-500">Occlusion</div></div>
+                <div><div class="text-xl font-bold text-blue-600">${d.inaccuracy_pack_placement}%</div><div class="text-xs text-gray-500">Pack placement</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-4 mt-4 text-xs text-gray-500">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span>Accuracy</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block"></span>Inaccuracy</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model Version History -->
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 class="text-sm font-semibold text-gray-700">Model Version History</h2>
+          <div class="flex items-center gap-3 text-xs text-gray-400">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-amber-50 border border-amber-200 inline-block"></span>Validation set updated</span>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
+              <th class="px-3 py-2.5 text-left font-medium">Version</th>
+              <th class="px-3 py-2.5 text-left font-medium">Month</th>
+              <th class="px-3 py-2.5 text-left font-medium">App Accuracy</th>
+              <th class="px-3 py-2.5 text-left font-medium">BR Accuracy</th>
+              <th class="px-3 py-2.5 text-left font-medium">Training Images</th>
+              <th class="px-3 py-2.5 text-left font-medium">New Images</th>
+            </tr></thead>
+            <tbody>${historyRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- View All modals -->
+      <div id="maModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+          <div class="flex items-center justify-between p-5 border-b border-gray-100">
+            <h2 id="maModalTitle" class="text-base font-semibold text-gray-800"></h2>
+            <button onclick="document.getElementById('maModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div id="maModalBody" class="p-5 overflow-y-auto flex-1"></div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  afterModelAccuracy() {
+    const history = Data.MODEL_HISTORY;
+    const labels  = history.map(v => v.version);
+    const vsIdxs  = history.map((v,i) => v.val_set_updated ? i : -1).filter(i => i >= 0);
+
+    const vsMarkerPlugin = {
+      id: 'vsMarkers',
+      afterDraw(chart) {
+        const ctx = chart.ctx;
+        const xScale = chart.scales.x;
+        const yScale = chart.scales.y;
+        vsIdxs.forEach(idx => {
+          const x = xScale.getPixelForValue(idx);
+          ctx.save();
+          ctx.strokeStyle = '#F59E0B';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          ctx.moveTo(x, yScale.top);
+          ctx.lineTo(x, yScale.bottom);
+          ctx.stroke();
+          ctx.restore();
+        });
+      },
+    };
+
+    const trendCtx = document.getElementById('chartAccTrend');
+    if (trendCtx) {
+      Chart.getChart(trendCtx)?.destroy();
+      new Chart(trendCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label:'App Accuracy', data:history.map(v=>v.app_accuracy),
+              borderColor:'#FB7185', backgroundColor:'rgba(251,113,133,0.08)',
+              tension:0.4, fill:true, pointRadius:3, pointHoverRadius:5, borderWidth:2 },
+            { label:'BR Accuracy',  data:history.map(v=>v.br_accuracy),
+              borderColor:'#10B981', backgroundColor:'rgba(16,185,129,0.08)',
+              tension:0.4, fill:true, pointRadius:3, pointHoverRadius:5, borderWidth:2 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend:{ display:false },
+            tooltip:{ callbacks:{ afterTitle: (items) => {
+              const idx = items[0]?.dataIndex;
+              const v = history[idx];
+              return v?.val_set_updated ? `⚠ ${v.val_set_note}` : '';
+            }}}
+          },
+          scales: { y:{ min:50, max:100, ticks:{ callback: v => v+'%' } }, x:{ ticks:{ maxRotation:45 } } },
+        },
+        plugins: [vsMarkerPlugin],
+      });
+    }
+
+    const pieCtx = document.getElementById('chartAccPie');
+    if (pieCtx) {
+      const acc = Data.MODEL_LATEST.accuracy;
+      Chart.getChart(pieCtx)?.destroy();
+      new Chart(pieCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Accuracy','Inaccuracy'],
+          datasets: [{ data:[acc, 100-acc], backgroundColor:['#34D399','#FB7185'], borderWidth:0, hoverOffset:4 }],
+        },
+        options: { responsive:true, maintainAspectRatio:false, cutout:'72%', plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.parsed}%` } } } },
+      });
+    }
+  },
+
+  _maShowAll(type) {
+    const modal     = document.getElementById('maModal');
+    const titleEl   = document.getElementById('maModalTitle');
+    const bodyEl    = document.getElementById('maModalBody');
+    if (type === 'sku') {
+      titleEl.textContent = `All SKUs (${Data.SKU_ACCURACY.length})`;
+      bodyEl.innerHTML = `<table class="w-full text-sm">
+        <thead><tr class="text-xs text-gray-400 border-b"><th class="pb-2 text-left">SKU Type</th><th class="pb-2 text-right">Accuracy</th></tr></thead>
+        <tbody>${Data.SKU_ACCURACY.map(s => `<tr class="border-b border-gray-50">
+          <td class="py-2 flex items-center gap-2"><img src="${s.packshot}" class="w-7 h-7 rounded"><div><div class="text-xs font-medium">${s.type}</div><div class="text-xs text-gray-400">${s.brand}</div></div></td>
+          <td class="py-2 text-right text-xs font-bold ${s.accuracy < 60 ? 'text-red-500' : s.accuracy < 75 ? 'text-amber-500' : 'text-green-600'}">${s.accuracy}%</td>
+        </tr>`).join('')}</tbody></table>`;
+    } else {
+      titleEl.textContent = `All Assets (${Data.ASSET_ACCURACY.length})`;
+      bodyEl.innerHTML = `<table class="w-full text-sm">
+        <thead><tr class="text-xs text-gray-400 border-b"><th class="pb-2 text-left">Asset Name</th><th class="pb-2 text-right">Accuracy</th></tr></thead>
+        <tbody>${Data.ASSET_ACCURACY.map(a => `<tr class="border-b border-gray-50">
+          <td class="py-2 text-xs font-medium text-gray-700">${a.name}</td>
+          <td class="py-2 text-right text-xs font-bold ${a.accuracy < 60 ? 'text-red-500' : a.accuracy < 75 ? 'text-amber-500' : 'text-green-600'}">${a.accuracy}%</td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+    modal.classList.remove('hidden');
+  },
+
   // ─── Logs ──────────────────────────────────────────────────────────────────
   logs() {
     const typeBadge = t => t==='Excel Download'?Utils.badge(t,'info'):t==='Competitor Product'?Utils.badge(t,'warning'):Utils.badge(t,'default');
