@@ -555,7 +555,14 @@ const Pages = {
             Download Template
           </button>
         </div>
-        <span class="text-xs text-gray-400">${products.length} product${products.length !== 1 ? 's' : ''}</span>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-400">${products.length} product${products.length !== 1 ? 's' : ''}</span>
+          <button onclick="Pages._cpExport()"
+            class="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export Excel
+          </button>
+        </div>
       </div>`;
 
     if (!products.length) {
@@ -803,6 +810,22 @@ const Pages = {
     document.getElementById('cpConflictModal')?.remove();
     Pages._cpPending = null;
     document.getElementById('mdTabContent').innerHTML = this._competitorTable();
+  },
+
+  _cpExport() {
+    const products = this._cpGet();
+    if (!products.length) { Utils.toast('No competitor products to export', 'danger'); return; }
+    if (typeof XLSX === 'undefined') { Utils.toast('Excel library not loaded', 'danger'); return; }
+    const rows = [['SKU', 'Product Name', 'Brand', 'Category'],
+      ...products.map(p => [p.sku, p.name, p.brand, p.category])];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch:16 }, { wch:36 }, { wch:22 }, { wch:20 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Competitor Products');
+    const ts = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `competitor_products_${ts}.xlsx`);
+    this._cpWriteLog('Exported', `Exported ${products.length} competitor product${products.length!==1?'s':''} to Excel`);
+    Utils.toast('Export complete', 'success');
   },
 
   // ─── Helper: keyword match across all object values ─────────────────────────
