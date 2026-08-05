@@ -441,7 +441,7 @@ const Pages = {
     <div class="space-y-6">
       <h1 class="text-2xl font-bold text-gray-800">Master Data</h1>
       <div class="flex gap-2 border-b border-gray-200">
-        ${['Stores', 'PEP Products'].map((t, i) => `
+        ${['Stores', 'PEP Products', 'Competitor Products'].map((t, i) => `
         <button onclick="Pages.switchMasterTab(${i})" id="mdTab${i}"
           class="px-4 py-2 text-sm font-medium border-b-2 transition ${i === 0 ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">${t}</button>`).join('')}
       </div>
@@ -450,15 +450,17 @@ const Pages = {
   },
 
   switchMasterTab(idx) {
-    [0, 1].forEach(i => {
+    [0, 1, 2].forEach(i => {
       document.getElementById(`mdTab${i}`).className =
         `px-4 py-2 text-sm font-medium border-b-2 transition ${i === idx ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`;
     });
     const content = {
       0: Pages._storesTable(Auth.marketStores()),
       1: Pages._productsTable(Data.PRODUCTS),
+      2: Pages._competitorTable(),
     };
-    document.getElementById('mdTabContent').innerHTML = this._mdExportBar(idx) + content[idx];
+    const bar = idx < 2 ? this._mdExportBar(idx) : '';
+    document.getElementById('mdTabContent').innerHTML = bar + content[idx];
   },
 
   _storesTable(stores) {
@@ -506,6 +508,301 @@ const Pages = {
       p.brand, p.category,
     ]));
     return Utils.table(cols, rows);
+  },
+
+  // ─── Competitor Products ────────────────────────────────────────────────────
+  _cpGet() {
+    try { return JSON.parse(localStorage.getItem('cpProducts') || '[]'); } catch { return []; }
+  },
+  _cpSave(arr) { localStorage.setItem('cpProducts', JSON.stringify(arr)); },
+  _cpWriteLog(action, detail) {
+    const u   = Auth.current();
+    const now = new Date();
+    const ts  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const logs = JSON.parse(localStorage.getItem('cpLogs') || '[]');
+    logs.unshift({ id:`CPL${Date.now()}`, type:'Competitor Product', user:u?.name||'Unknown', detail, size:'—', ts, status:'Complete' });
+    localStorage.setItem('cpLogs', JSON.stringify(logs));
+  },
+  _cpAvatar(brand) {
+    const palette = ['3B82F6','EF4444','F59E0B','10B981','8B5CF6','EC4899','06B6D4','F97316','6366F1','84CC16'];
+    const idx = [...(brand||'?')].reduce((h,c) => (h*31 + c.charCodeAt(0)) & 0xffffff, 0) % palette.length;
+    const initials = (brand||'?').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style="background:#${palette[idx]}">${initials}</div>`;
+  },
+
+  _competitorTable() {
+    const products = this._cpGet();
+    const isAdmin  = Auth.current()?.role === 'Admin';
+    const toolbar  = `
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div class="flex gap-2 flex-wrap">
+          ${isAdmin ? `
+            <button onclick="Pages._cpImportClick()"
+              class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              Import Excel
+            </button>
+            <input type="file" id="cpFileInput" accept=".xlsx,.xls" class="hidden" onchange="Pages._cpHandleFile(this)">
+            <button onclick="Pages._cpOpenModal('add')"
+              class="text-sm bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add Product
+            </button>
+          ` : ''}
+          <button onclick="Pages._cpDownloadTemplate()"
+            class="text-sm bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-3 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download Template
+          </button>
+        </div>
+        <span class="text-xs text-gray-400">${products.length} product${products.length !== 1 ? 's' : ''}</span>
+      </div>`;
+
+    if (!products.length) {
+      return toolbar + `
+        <div class="text-center py-16 text-gray-300">
+          <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          <p class="text-sm text-gray-400">No competitor products yet.</p>
+          ${isAdmin ? '<p class="text-xs mt-1 text-gray-400">Import an Excel file or add products manually.</p>' : ''}
+        </div>`;
+    }
+
+    const cols = [
+      { label:'', key:'avatar', sortable:false },
+      { label:'SKU', key:'sku', sortable:true },
+      { label:'Product Name', key:'name', sortable:true },
+      { label:'Brand', key:'brand', sortable:true },
+      { label:'Category', key:'category', sortable:true },
+      ...(isAdmin ? [{ label:'Actions', key:'actions', sortable:false }] : []),
+    ];
+    const rows = products.map(p => Utils.tr([
+      this._cpAvatar(p.brand),
+      `<span class="font-mono text-xs text-gray-500">${p.sku}</span>`,
+      `<span class="font-medium text-gray-800">${p.name}</span>`,
+      p.brand, p.category,
+      ...(isAdmin ? [`<div class="flex gap-3">
+        <button onclick="Pages._cpOpenModal('edit','${p.sku.replace(/'/g,"\\'")}')\" class="text-xs text-blue-600 hover:text-blue-800 hover:underline">Edit</button>
+        <button onclick="Pages._cpDelete('${p.sku.replace(/'/g,"\\'")}')\" class="text-xs text-red-500 hover:text-red-700 hover:underline">Delete</button>
+      </div>`] : []),
+    ]));
+    return toolbar + Utils.table(cols, rows);
+  },
+
+  _cpOpenModal(mode, sku = null) {
+    document.getElementById('cpModal')?.remove();
+    const prod = sku ? this._cpGet().find(p => p.sku === sku) : null;
+    const skuField = mode === 'edit'
+      ? `<input id="cpFSku" type="text" value="${prod?.sku||''}" readonly class="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400">`
+      : `<input id="cpFSku" type="text" value="" placeholder="e.g. COMP-001" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">`;
+    const html = `
+    <div id="cpModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div class="flex items-center justify-between p-5 border-b border-gray-100">
+          <h2 class="text-base font-semibold text-gray-800">${mode === 'add' ? 'Add Competitor Product' : 'Edit Competitor Product'}</h2>
+          <button onclick="Pages._cpCloseModal()" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <div id="cpAvatarPreview">${this._cpAvatar(prod?.brand||'')}</div>
+            <p class="text-xs text-gray-400">Avatar auto-generated from brand name</p>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 block mb-1">SKU *</label>
+            ${skuField}
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 block mb-1">Product Name *</label>
+            <input id="cpFName" type="text" value="${prod?.name||''}" placeholder="e.g. Coca-Cola Classic 12oz Can"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 block mb-1">Brand *</label>
+            <input id="cpFBrand" type="text" value="${prod?.brand||''}" placeholder="e.g. Coca-Cola" oninput="Pages._cpUpdateAvatar()"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 block mb-1">Category *</label>
+            <input id="cpFCategory" type="text" value="${prod?.category||''}" placeholder="e.g. Cola, Chips, Energy Drink"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 p-5 border-t border-gray-100">
+          <button onclick="Pages._cpCloseModal()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition">Cancel</button>
+          <button onclick="Pages._cpSaveModal('${mode}','${sku||''}')"
+            class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition">Save Product</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+
+  _cpCloseModal() { document.getElementById('cpModal')?.remove(); },
+
+  _cpUpdateAvatar() {
+    const brand = document.getElementById('cpFBrand')?.value || '';
+    const el = document.getElementById('cpAvatarPreview');
+    if (el) el.innerHTML = this._cpAvatar(brand);
+  },
+
+  _cpSaveModal(mode, editSku) {
+    const sku  = (document.getElementById('cpFSku')?.value || '').trim();
+    const name = (document.getElementById('cpFName')?.value || '').trim();
+    const brand = (document.getElementById('cpFBrand')?.value || '').trim();
+    const cat  = (document.getElementById('cpFCategory')?.value || '').trim();
+    if (!sku || !name || !brand || !cat) { Utils.toast('All fields are required', 'danger'); return; }
+
+    const products = this._cpGet();
+    if (mode === 'add') {
+      if (products.find(p => p.sku === sku)) { Utils.toast(`SKU "${sku}" already exists`, 'danger'); return; }
+      products.unshift({ sku, name, brand, category:cat });
+      this._cpSave(products);
+      this._cpWriteLog('Added', `Added competitor product SKU ${sku} – ${name} (${brand})`);
+      Utils.toast('Product added', 'success');
+    } else {
+      const idx = products.findIndex(p => p.sku === editSku);
+      if (idx === -1) return;
+      const prev = { ...products[idx] };
+      products[idx] = { sku:editSku, name, brand, category:cat };
+      this._cpSave(products);
+      const changes = ['name','brand','category']
+        .filter(k => products[idx][k] !== prev[k])
+        .map(k => `${k}: "${prev[k]}" → "${products[idx][k]}"`).join('; ');
+      this._cpWriteLog('Edited', `Edited SKU ${editSku}${changes ? ' — ' + changes : ''}`);
+      Utils.toast('Product updated', 'success');
+    }
+    this._cpCloseModal();
+    document.getElementById('mdTabContent').innerHTML = this._competitorTable();
+  },
+
+  _cpDelete(sku) {
+    if (!confirm(`Delete competitor product "${sku}"? This cannot be undone.`)) return;
+    this._cpSave(this._cpGet().filter(p => p.sku !== sku));
+    this._cpWriteLog('Deleted', `Deleted competitor product SKU ${sku}`);
+    Utils.toast('Product deleted', 'success');
+    document.getElementById('mdTabContent').innerHTML = this._competitorTable();
+  },
+
+  _cpDownloadTemplate() {
+    if (typeof XLSX === 'undefined') { Utils.toast('Excel library not loaded', 'danger'); return; }
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['SKU', 'Product Name', 'Brand', 'Category'],
+      ['COMP-001', 'Example Product 330ml', 'Brand Name', 'Cola'],
+    ]);
+    ws['!cols'] = [{ wch:14 }, { wch:34 }, { wch:20 }, { wch:18 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Competitor Products');
+    XLSX.writeFile(wb, 'competitor_products_template.xlsx');
+    Utils.toast('Template downloaded', 'success');
+  },
+
+  _cpImportClick() { document.getElementById('cpFileInput')?.click(); },
+
+  _cpHandleFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (typeof XLSX === 'undefined') { Utils.toast('Excel library not loaded', 'danger'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb   = XLSX.read(e.target.result, { type:'binary' });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+        if (!rows.length) { Utils.toast('File is empty', 'danger'); return; }
+        const required = ['SKU','Product Name','Brand','Category'];
+        const missing  = required.filter(r => !(r in rows[0]));
+        if (missing.length) { Utils.toast(`Missing columns: ${missing.join(', ')}`, 'danger'); return; }
+        const incoming = rows
+          .map(r => ({ sku:String(r.SKU).trim(), name:String(r['Product Name']).trim(), brand:String(r.Brand).trim(), category:String(r.Category).trim() }))
+          .filter(r => r.sku && r.name && r.brand && r.category);
+        if (!incoming.length) { Utils.toast('No valid rows found', 'danger'); return; }
+        const existing   = this._cpGet();
+        const conflicts  = incoming.filter(r => existing.find(e => e.sku === r.sku));
+        const fresh      = incoming.filter(r => !existing.find(e => e.sku === r.sku));
+        if (conflicts.length) {
+          this._cpShowConflicts(fresh, conflicts, existing);
+        } else {
+          this._cpSave([...existing, ...fresh]);
+          this._cpWriteLog('Imported', `Imported ${fresh.length} competitor product${fresh.length!==1?'s':''} via Excel (${file.name})`);
+          Utils.toast(`${fresh.length} product${fresh.length!==1?'s':''} imported`, 'success');
+          document.getElementById('mdTabContent').innerHTML = this._competitorTable();
+        }
+      } catch(err) { Utils.toast('Failed to parse file — check format', 'danger'); }
+      input.value = '';
+    };
+    reader.readAsBinaryString(file);
+  },
+
+  _cpShowConflicts(fresh, conflicts, existing) {
+    Pages._cpPending = { fresh, conflicts, existing };
+    document.getElementById('cpConflictModal')?.remove();
+    const rows = conflicts.map(c => {
+      const orig = existing.find(e => e.sku === c.sku);
+      return `
+      <div class="border border-gray-200 rounded-lg p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-xs font-semibold text-blue-600">${c.sku}</span>
+          <span class="text-xs text-orange-500 font-medium bg-orange-50 px-2 py-0.5 rounded-full">Duplicate</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="bg-gray-50 rounded-lg p-2">
+            <div class="font-semibold text-gray-400 mb-1 uppercase tracking-wide" style="font-size:10px">Original</div>
+            <div class="font-medium text-gray-700">${orig.name}</div>
+            <div class="text-gray-400 mt-0.5">${orig.brand} · ${orig.category}</div>
+          </div>
+          <div class="bg-blue-50 rounded-lg p-2">
+            <div class="font-semibold text-blue-400 mb-1 uppercase tracking-wide" style="font-size:10px">Uploaded</div>
+            <div class="font-medium text-gray-700">${c.name}</div>
+            <div class="text-gray-400 mt-0.5">${c.brand} · ${c.category}</div>
+          </div>
+        </div>
+        <div class="flex gap-4 pt-1">
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+            <input type="radio" name="cpConf_${c.sku}" value="keep" checked class="accent-gray-500"> Keep original
+          </label>
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+            <input type="radio" name="cpConf_${c.sku}" value="replace" class="accent-blue-600"> Use uploaded
+          </label>
+        </div>
+      </div>`;
+    }).join('');
+    const html = `
+    <div id="cpConflictModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col" style="max-height:90vh">
+        <div class="p-5 border-b border-gray-100">
+          <h2 class="text-base font-semibold text-gray-800">Duplicate SKUs Detected</h2>
+          <p class="text-xs text-gray-400 mt-0.5">${conflicts.length} conflict${conflicts.length>1?'s':''} · ${fresh.length} new product${fresh.length!==1?'s':''} ready to import</p>
+        </div>
+        <div class="p-5 space-y-3 overflow-y-auto flex-1">${rows}</div>
+        <div class="flex justify-end gap-3 p-5 border-t border-gray-100">
+          <button onclick="document.getElementById('cpConflictModal').remove()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+          <button onclick="Pages._cpApplyImport()" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition">Confirm Import</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+
+  _cpApplyImport() {
+    const { fresh, conflicts, existing } = Pages._cpPending || {};
+    if (!fresh && !conflicts) return;
+    let products = [...existing];
+    let replaced = 0;
+    conflicts.forEach(c => {
+      const decision = document.querySelector(`input[name="cpConf_${c.sku}"]:checked`)?.value;
+      if (decision === 'replace') {
+        const idx = products.findIndex(p => p.sku === c.sku);
+        if (idx !== -1) { products[idx] = c; replaced++; }
+      }
+    });
+    products = [...products, ...fresh];
+    this._cpSave(products);
+    this._cpWriteLog('Imported', `Imported ${fresh.length} new + ${replaced} replaced competitor product${fresh.length+replaced!==1?'s':''} via Excel`);
+    Utils.toast(`Import complete: ${fresh.length} new, ${replaced} replaced`, 'success');
+    document.getElementById('cpConflictModal')?.remove();
+    Pages._cpPending = null;
+    document.getElementById('mdTabContent').innerHTML = this._competitorTable();
   },
 
   // ─── Helper: keyword match across all object values ─────────────────────────
@@ -1554,7 +1851,7 @@ const Pages = {
 
   // ─── Logs ──────────────────────────────────────────────────────────────────
   logs() {
-    const typeBadge = t => t==='Excel Download'?Utils.badge(t,'info'):t==='Survey Push'?Utils.badge(t,'warning'):Utils.badge(t,'default');
+    const typeBadge = t => t==='Excel Download'?Utils.badge(t,'info'):t==='Competitor Product'?Utils.badge(t,'warning'):Utils.badge(t,'default');
     const statBadge = s => s==='Complete'||s==='Delivered'?Utils.badge(s,'success'):s==='Failed'?Utils.badge(s,'danger'):Utils.badge(s,'warning');
     const cols = [
       { label:'Type',      key:'type',   sortable:true },
@@ -1564,7 +1861,9 @@ const Pages = {
       { label:'Timestamp', key:'ts',     sortable:true },
       { label:'Status',    key:'status', sortable:true },
     ];
-    const rows = Data.LOGS.map(l => Utils.tr([
+    const cpLogs  = JSON.parse(localStorage.getItem('cpLogs') || '[]');
+    const allLogs = [...cpLogs, ...Data.LOGS].sort((a,b) => b.ts.localeCompare(a.ts));
+    const rows = allLogs.map(l => Utils.tr([
       typeBadge(l.type), l.user, `<span class="text-gray-600 max-w-xs block truncate" title="${l.detail}">${l.detail}</span>`, l.size, l.ts, statBadge(l.status),
     ]));
     return `
