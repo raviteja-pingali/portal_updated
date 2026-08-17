@@ -381,7 +381,7 @@ const App = {
   },
 
   exportMasterData(tabIdx) {
-    const label = ['Stores', 'Users', 'Products'][tabIdx] || 'Master Data';
+    const label = ['Stores', 'PEP Products', 'Competitor Products'][tabIdx] || 'Master Data';
     Utils.toast(`Exporting ${label}…`, 'info');
     Data.LOGS.unshift({
       id: `lg${Date.now()}`, type: 'Excel Download', user: Auth.current().name,

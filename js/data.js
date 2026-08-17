@@ -319,6 +319,25 @@ MARKETS.forEach(m => {
   };
 });
 
+// ── Competitor Products ────────────────────────────────────────────────────────
+const COMPETITOR_PRODUCTS = [
+  { id:'cp1',  sku:'CC-B001',  name:'Coca-Cola Classic 12oz Can',     brand:'Coca-Cola',    category:'Cola',          packshot:'https://placehold.co/56x56/F40009/FFFFFF?text=CC',    market:'m1' },
+  { id:'cp2',  sku:'CC-B002',  name:'Diet Coke 12oz Can',             brand:'Coca-Cola',    category:'Cola',          packshot:'https://placehold.co/56x56/1A1A1A/FFFFFF?text=DC',    market:'m1' },
+  { id:'cp3',  sku:'CC-B003',  name:'Sprite 12oz Can',                brand:'Sprite',       category:'Lemon-Lime',    packshot:'https://placehold.co/56x56/00A651/FFFFFF?text=Sprite', market:'m1' },
+  { id:'cp4',  sku:'CC-B004',  name:'Fanta Orange 12oz Can',          brand:'Fanta',        category:'Fruit Soda',    packshot:'https://placehold.co/56x56/FF7200/FFFFFF?text=Fanta',  market:'m1' },
+  { id:'cp5',  sku:'CC-B005',  name:'Powerade Fruit Punch 20oz',      brand:'Powerade',     category:'Sports Drink',  packshot:'https://placehold.co/56x56/0057A8/FFFFFF?text=PWR',   market:'m1' },
+  { id:'cp6',  sku:'DRP-B001', name:'Dr Pepper 12oz Can',             brand:'Dr Pepper',    category:'Cola',          packshot:'https://placehold.co/56x56/6B0D0D/FFFFFF?text=DrP',   market:'m1' },
+  { id:'cp7',  sku:'DRP-B002', name:'7UP 12oz Can',                   brand:'7UP',          category:'Lemon-Lime',    packshot:'https://placehold.co/56x56/00A550/FFFFFF?text=7UP',   market:'m1' },
+  { id:'cp8',  sku:'DRP-B003', name:'Snapple Peach Tea 16oz',         brand:'Snapple',      category:'Tea',           packshot:'https://placehold.co/56x56/F5A623/000000?text=Snap',  market:'m1' },
+  { id:'cp9',  sku:'MON-B001', name:'Monster Energy Original 16oz',   brand:'Monster',      category:'Energy Drink',  packshot:'https://placehold.co/56x56/1A1A1A/00FF00?text=MON',  market:'m1' },
+  { id:'cp10', sku:'RB-B001',  name:'Red Bull Energy 8.4oz Can',      brand:'Red Bull',     category:'Energy Drink',  packshot:'https://placehold.co/56x56/CC0000/FFFFFF?text=RB',    market:'m1' },
+  { id:'cp11', sku:'KTL-S001', name:'Kettle Brand Sea Salt 2oz',      brand:'Kettle Brand', category:'Chips',         packshot:'https://placehold.co/56x56/8B4513/FFFFFF?text=KTL',  market:'m1' },
+  { id:'cp12', sku:'PRG-S001', name:'Pringles Original 2.5oz',        brand:'Pringles',     category:'Chips',         packshot:'https://placehold.co/56x56/CC0000/FFFFFF?text=PRG',   market:'m1' },
+  { id:'cp13', sku:'PRG-S002', name:'Pringles Sour Cream 2.5oz',      brand:'Pringles',     category:'Chips',         packshot:'https://placehold.co/56x56/CC6600/FFFFFF?text=PRG',   market:'m1' },
+  { id:'cp14', sku:'UTZ-S001', name:'Utz Original Potato Chips 2oz',  brand:'Utz',          category:'Chips',         packshot:'https://placehold.co/56x56/CC0000/FFFFFF?text=Utz',   market:'m1' },
+  { id:'cp15', sku:'PKY-S001', name:"Pirate's Booty Aged White Cheddar 4oz", brand:"Pirate's Booty", category:'Cheese Snacks', packshot:'https://placehold.co/56x56/FFD700/000000?text=PB', market:'m1' },
+];
+
 // ── Model Accuracy Data ────────────────────────────────────────────────────────
 const MODEL_LATEST = {
   users: 181, store_visits: 2204, images_captured: 6363,
@@ -377,5 +396,6 @@ const Data = {
   AVAILABLE_COLUMNS, AVAILABLE_FILTERS, REPORT_TEMPLATES,
   DASHBOARD_WIDGETS, DASHBOARD_CONFIG,
   FRAUD_TYPES,
+  COMPETITOR_PRODUCTS,
   MODEL_LATEST, MODEL_HISTORY, SKU_ACCURACY, ASSET_ACCURACY,
 };
