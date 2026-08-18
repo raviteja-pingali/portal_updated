@@ -319,6 +319,18 @@ MARKETS.forEach(m => {
   };
 });
 
+// ── NDB SKUs (Non-Database SKUs — detected but unrecognized) ──────────────────
+const NDB_SKUS = [
+  { id:'NDB-001', packshot:'https://placehold.co/56x56/6366F1/FFFFFF?text=NDB', sku:'', product_name:'Unrecognized Snack Bag 85g',       brand:"Lay's",      category:'Chips',          subcategory:'Potato Chips',    company:'PEP',        detected_date:'2026-05-17', store:'Walmart – Dallas, TX',       status:'Pending' },
+  { id:'NDB-002', packshot:'https://placehold.co/56x56/8B5CF6/FFFFFF?text=NDB', sku:'', product_name:'Unknown Energy Drink 500ml',        brand:'Monster',    category:'Energy Drink',   subcategory:'Original',        company:'Competitor', detected_date:'2026-05-16', store:'Kroger – Austin, TX',        status:'Pending' },
+  { id:'NDB-003', packshot:'https://placehold.co/56x56/EC4899/FFFFFF?text=NDB', sku:'', product_name:'Unrecognized Cheese Snack 120g',    brand:'Cheetos',    category:'Cheese Snacks',  subcategory:'Crunchy',         company:'PEP',        detected_date:'2026-05-16', store:'Target – Houston, TX',       status:'Pending' },
+  { id:'NDB-004', packshot:'https://placehold.co/56x56/F59E0B/000000?text=NDB', sku:'', product_name:'Unknown Beverage Can 330ml',        brand:'Coca-Cola',  category:'Cola',           subcategory:'Regular',         company:'Competitor', detected_date:'2026-05-15', store:'H-E-B – San Antonio, TX',    status:'Pending' },
+  { id:'NDB-005', packshot:'https://placehold.co/56x56/10B981/FFFFFF?text=NDB', sku:'', product_name:'Unrecognized Sports Drink 500ml',   brand:'Gatorade',   category:'Sports Drink',   subcategory:'Thirst Quencher', company:'PEP',        detected_date:'2026-05-15', store:'Publix – Miami, FL',         status:'Pending' },
+  { id:'NDB-006', packshot:'https://placehold.co/56x56/EF4444/FFFFFF?text=NDB', sku:'', product_name:'Unknown Tortilla Chip Bag 200g',    brand:'Doritos',    category:'Tortilla Chips', subcategory:'Nacho Cheese',    company:'PEP',        detected_date:'2026-05-14', store:'Costco – Seattle, WA',       status:'Pending' },
+  { id:'NDB-007', packshot:'https://placehold.co/56x56/06B6D4/FFFFFF?text=NDB', sku:'', product_name:'Unrecognized Water Bottle 1L',      brand:'Aquafina',   category:'Water',          subcategory:'Still',           company:'PEP',        detected_date:'2026-05-14', store:'Whole Foods – New York, NY', status:'Pending' },
+  { id:'NDB-008', packshot:'https://placehold.co/56x56/84CC16/000000?text=NDB', sku:'', product_name:'Unknown Chip Variety 90g',          brand:'Pringles',   category:'Chips',          subcategory:'Stackable Chips', company:'Competitor', detected_date:'2026-05-13', store:'Albertsons – Phoenix, AZ',   status:'Pending' },
+];
+
 // ── Competitor Products ────────────────────────────────────────────────────────
 const COMPETITOR_PRODUCTS = [
   { id:'cp1',  sku:'CC-B001',  name:'Coca-Cola Classic 12oz Can',     brand:'Coca-Cola',    category:'Cola',          packshot:'https://placehold.co/56x56/F40009/FFFFFF?text=CC',    market:'m1' },
@@ -397,5 +409,6 @@ const Data = {
   DASHBOARD_WIDGETS, DASHBOARD_CONFIG,
   FRAUD_TYPES,
   COMPETITOR_PRODUCTS,
+  NDB_SKUS,
   MODEL_LATEST, MODEL_HISTORY, SKU_ACCURACY, ASSET_ACCURACY,
 };

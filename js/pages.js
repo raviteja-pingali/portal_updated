@@ -441,7 +441,7 @@ const Pages = {
     <div class="space-y-6">
       <h1 class="text-2xl font-bold text-gray-800">Master Data</h1>
       <div class="flex gap-2 border-b border-gray-200">
-        ${['Stores', 'PEP Products', 'Competitor Products'].map((t, i) => `
+        ${['Stores', 'PEP Products', 'Competitor Products', 'NDB SKU'].map((t, i) => `
         <button onclick="Pages.switchMasterTab(${i})" id="mdTab${i}"
           class="px-4 py-2 text-sm font-medium border-b-2 transition ${i === 0 ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">${t}</button>`).join('')}
       </div>
@@ -450,7 +450,7 @@ const Pages = {
   },
 
   switchMasterTab(idx) {
-    [0, 1, 2].forEach(i => {
+    [0, 1, 2, 3].forEach(i => {
       document.getElementById(`mdTab${i}`).className =
         `px-4 py-2 text-sm font-medium border-b-2 transition ${i === idx ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`;
     });
@@ -458,8 +458,10 @@ const Pages = {
       0: Pages._storesTable(Auth.marketStores()),
       1: Pages._productsTable(Data.PRODUCTS),
       2: Pages._competitorTable(),
+      3: Pages._ndbTable(),
     };
-    document.getElementById('mdTabContent').innerHTML = this._mdExportBar(idx) + content[idx];
+    const bar = idx === 3 ? '' : this._mdExportBar(idx);
+    document.getElementById('mdTabContent').innerHTML = bar + content[idx];
   },
 
   _storesTable(stores) {
@@ -493,6 +495,8 @@ const Pages = {
   },
 
   _productsTable(products) {
+    const additions = JSON.parse(localStorage.getItem('pepAdditions') || '[]');
+    const all = [...products, ...additions];
     const cols = [
       { label:'Packshot', key:'packshot', sortable:false },
       { label:'SKU', key:'sku', sortable:true },
@@ -500,8 +504,8 @@ const Pages = {
       { label:'Brand', key:'brand', sortable:true },
       { label:'Category', key:'category', sortable:true },
     ];
-    const rows = products.map(p => Utils.tr([
-      `<img src="${p.packshot}" alt="${p.name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy">`,
+    const rows = all.map(p => Utils.tr([
+      `<img src="${p.packshot || 'https://placehold.co/56x56/CBD5E1/FFFFFF?text=?'}" alt="${p.name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy">`,
       `<span class="font-mono text-xs text-gray-500">${p.sku}</span>`,
       `<span class="font-medium text-gray-800">${p.name}</span>`,
       p.brand, p.category,
@@ -512,6 +516,8 @@ const Pages = {
   // ─── Competitor Products ────────────────────────────────────────────────────
 
   _competitorTable() {
+    const additions = JSON.parse(localStorage.getItem('cpAdditions') || '[]');
+    const all = [...Data.COMPETITOR_PRODUCTS, ...additions];
     const cols = [
       { label:'Packshot', key:'packshot', sortable:false },
       { label:'SKU',          key:'sku',      sortable:true },
@@ -519,13 +525,223 @@ const Pages = {
       { label:'Brand',        key:'brand',    sortable:true },
       { label:'Category',     key:'category', sortable:true },
     ];
-    const rows = Data.COMPETITOR_PRODUCTS.map(p => Utils.tr([
-      `<img src="${p.packshot}" alt="${p.name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy">`,
+    const rows = all.map(p => Utils.tr([
+      `<img src="${p.packshot || 'https://placehold.co/56x56/CBD5E1/FFFFFF?text=?'}" alt="${p.name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy">`,
       `<span class="font-mono text-xs text-gray-500">${p.sku}</span>`,
       `<span class="font-medium text-gray-800">${p.name}</span>`,
       p.brand, p.category,
     ]));
     return Utils.table(cols, rows);
+  },
+
+  // ─── NDB SKU Tab ───────────────────────────────────────────────────────────
+
+  _ndbGet() {
+    const stored = localStorage.getItem('ndbSkus');
+    return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(Data.NDB_SKUS));
+  },
+
+  _ndbSave(list) {
+    localStorage.setItem('ndbSkus', JSON.stringify(list));
+  },
+
+  _ndbTable() {
+    const u = Auth.current();
+    const isAdmin = u.role === 'Admin';
+    const items = this._ndbGet();
+
+    const toolbar = isAdmin ? `
+      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="ndbChkAll" onchange="Pages._ndbToggleAll(this.checked)"
+            class="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer">
+          <span class="text-sm text-gray-500">Select all</span>
+          <button id="ndbSubmitBtn" disabled onclick="Pages._ndbSubmitSelected()"
+            class="ml-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg transition">
+            Submit Selected
+          </button>
+        </div>
+        <button onclick="Pages._ndbExport()"
+          class="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Export Excel
+        </button>
+      </div>` : `
+      <div class="flex justify-end mb-3">
+        <button onclick="Pages._ndbExport()"
+          class="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Export Excel
+        </button>
+      </div>`;
+
+    const thBase = 'px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide';
+    const header = `<tr>
+      ${isAdmin ? `<th class="${thBase} w-8"></th>` : ''}
+      <th class="${thBase}">Packshot</th>
+      <th class="${thBase}">Assigned SKU</th>
+      <th class="${thBase}">Product Name</th>
+      <th class="${thBase}">Brand</th>
+      <th class="${thBase}">Category</th>
+      <th class="${thBase}">Subcategory</th>
+      <th class="${thBase}">Company</th>
+      <th class="${thBase}">Store</th>
+      <th class="${thBase}">Detected</th>
+      <th class="${thBase}">Status</th>
+      ${isAdmin ? `<th class="${thBase}">Actions</th>` : ''}
+    </tr>`;
+
+    const body = items.length === 0
+      ? `<tr><td colspan="${isAdmin ? 12 : 10}" class="px-4 py-8 text-center text-gray-400 text-sm">No NDB SKUs pending review.</td></tr>`
+      : items.map(p => this._ndbRow(p, isAdmin)).join('');
+
+    return `${toolbar}
+    <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">${header}</thead>
+        <tbody id="ndbTbody" class="divide-y divide-gray-100">${body}</tbody>
+      </table>
+    </div>`;
+  },
+
+  _ndbRow(p, isAdmin) {
+    if (isAdmin === undefined) isAdmin = Auth.current().role === 'Admin';
+    const statusBadge = p.status === 'Reviewed'
+      ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Reviewed</span>'
+      : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>';
+    const compBadge = p.company === 'PEP'
+      ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">PEP</span>'
+      : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Competitor</span>';
+    const rowBg = p.status === 'Reviewed' ? 'bg-green-50' : '';
+    return `<tr id="ndbRow_${p.id}" class="${rowBg} hover:bg-gray-50 transition-colors">
+      ${isAdmin ? `<td class="px-3 py-2"><input type="checkbox" class="ndbChk w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer" data-id="${p.id}" onchange="Pages._ndbUpdateSubmitBtn()"></td>` : ''}
+      <td class="px-3 py-2"><img src="${p.packshot}" alt="${p.product_name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy"></td>
+      <td class="px-3 py-2 font-mono text-xs text-gray-500">${p.sku || '<span class="text-gray-300">—</span>'}</td>
+      <td class="px-3 py-2 font-medium text-gray-800 max-w-[180px] truncate" title="${p.product_name}">${p.product_name}</td>
+      <td class="px-3 py-2">${p.brand}</td>
+      <td class="px-3 py-2">${p.category}</td>
+      <td class="px-3 py-2">${p.subcategory}</td>
+      <td class="px-3 py-2">${compBadge}</td>
+      <td class="px-3 py-2 text-xs text-gray-500 max-w-[150px] truncate" title="${p.store}">${p.store}</td>
+      <td class="px-3 py-2 text-xs text-gray-400">${p.detected_date}</td>
+      <td class="px-3 py-2">${statusBadge}</td>
+      ${isAdmin ? `<td class="px-3 py-2"><button onclick="Pages._ndbStartEdit('${p.id}')" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Edit</button></td>` : ''}
+    </tr>`;
+  },
+
+  _ndbStartEdit(id) {
+    const list = this._ndbGet();
+    const p = list.find(x => x.id === id);
+    if (!p) return;
+    const row = document.getElementById(`ndbRow_${id}`);
+    row.innerHTML = `
+      <td class="px-3 py-2"><input type="checkbox" class="ndbChk w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer" data-id="${p.id}" onchange="Pages._ndbUpdateSubmitBtn()"></td>
+      <td class="px-3 py-2"><img src="${p.packshot}" alt="${p.product_name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100"></td>
+      <td class="px-3 py-2"><input id="ndbEsku_${id}" value="${p.sku}" placeholder="e.g. PEP-B099" class="w-28 text-xs border border-gray-300 rounded px-2 py-1 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
+      <td class="px-3 py-2"><input id="ndbEname_${id}" value="${p.product_name}" class="w-40 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
+      <td class="px-3 py-2"><input id="ndbEbrand_${id}" value="${p.brand}" class="w-24 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
+      <td class="px-3 py-2"><input id="ndbEcat_${id}" value="${p.category}" class="w-28 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
+      <td class="px-3 py-2"><input id="ndbEsub_${id}" value="${p.subcategory}" class="w-28 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
+      <td class="px-3 py-2">
+        <select id="ndbEcomp_${id}" class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          <option value="PEP" ${p.company === 'PEP' ? 'selected' : ''}>PEP</option>
+          <option value="Competitor" ${p.company === 'Competitor' ? 'selected' : ''}>Competitor</option>
+        </select>
+      </td>
+      <td class="px-3 py-2 text-xs text-gray-500">${p.store}</td>
+      <td class="px-3 py-2 text-xs text-gray-400">${p.detected_date}</td>
+      <td class="px-3 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Editing</span></td>
+      <td class="px-3 py-2 flex gap-2">
+        <button onclick="Pages._ndbSaveRow('${id}')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-medium">Save</button>
+        <button onclick="Pages._ndbCancelEdit('${id}')" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Cancel</button>
+      </td>`;
+    row.classList.remove('bg-green-50');
+    row.classList.add('bg-blue-50');
+  },
+
+  _ndbSaveRow(id) {
+    const list = this._ndbGet();
+    const i = list.findIndex(x => x.id === id);
+    if (i === -1) return;
+    list[i].sku          = document.getElementById(`ndbEsku_${id}`).value.trim();
+    list[i].product_name = document.getElementById(`ndbEname_${id}`).value.trim();
+    list[i].brand        = document.getElementById(`ndbEbrand_${id}`).value.trim();
+    list[i].category     = document.getElementById(`ndbEcat_${id}`).value.trim();
+    list[i].subcategory  = document.getElementById(`ndbEsub_${id}`).value.trim();
+    list[i].company      = document.getElementById(`ndbEcomp_${id}`).value;
+    list[i].status       = 'Reviewed';
+    this._ndbSave(list);
+    const row = document.getElementById(`ndbRow_${id}`);
+    row.outerHTML = this._ndbRow(list[i], true);
+    this._ndbUpdateSubmitBtn();
+  },
+
+  _ndbCancelEdit(id) {
+    const list = this._ndbGet();
+    const p = list.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById(`ndbRow_${id}`).outerHTML = this._ndbRow(p, true);
+    this._ndbUpdateSubmitBtn();
+  },
+
+  _ndbToggleAll(checked) {
+    document.querySelectorAll('.ndbChk').forEach(c => { c.checked = checked; });
+    this._ndbUpdateSubmitBtn();
+  },
+
+  _ndbUpdateSubmitBtn() {
+    const chks = [...document.querySelectorAll('.ndbChk')];
+    const checkedCount = chks.filter(c => c.checked).length;
+    const btn = document.getElementById('ndbSubmitBtn');
+    if (btn) btn.disabled = checkedCount === 0;
+    const allChk = document.getElementById('ndbChkAll');
+    if (allChk) {
+      allChk.indeterminate = checkedCount > 0 && checkedCount < chks.length;
+      allChk.checked = chks.length > 0 && checkedCount === chks.length;
+    }
+  },
+
+  _ndbSubmitSelected() {
+    const list = this._ndbGet();
+    const checkedIds = [...document.querySelectorAll('.ndbChk:checked')].map(c => c.dataset.id);
+    if (checkedIds.length === 0) return;
+    const toSubmit = list.filter(p => checkedIds.includes(p.id));
+    const missing = toSubmit.filter(p => !p.sku);
+    if (missing.length > 0) {
+      Utils.toast('Please assign a SKU to all selected rows before submitting.', 'warning');
+      return;
+    }
+    const pepAdd = JSON.parse(localStorage.getItem('pepAdditions') || '[]');
+    const cpAdd  = JSON.parse(localStorage.getItem('cpAdditions')  || '[]');
+    toSubmit.forEach(p => {
+      const entry = { id:p.id, sku:p.sku, name:p.product_name, brand:p.brand, category:p.category, subcategory:p.subcategory, packshot:p.packshot, market:'m1' };
+      if (p.company === 'PEP') pepAdd.push(entry);
+      else cpAdd.push(entry);
+    });
+    localStorage.setItem('pepAdditions', JSON.stringify(pepAdd));
+    localStorage.setItem('cpAdditions',  JSON.stringify(cpAdd));
+    this._ndbSave(list.filter(p => !checkedIds.includes(p.id)));
+    Utils.toast(`${toSubmit.length} SKU(s) submitted successfully.`, 'success');
+    document.getElementById('mdTabContent').innerHTML = this._ndbTable();
+  },
+
+  _ndbExport() {
+    const list = this._ndbGet();
+    if (!list.length) { Utils.toast('No NDB SKUs to export.', 'warning'); return; }
+    const rows = list.map(p => ({
+      ID: p.id, SKU: p.sku, 'Product Name': p.product_name,
+      Brand: p.brand, Category: p.category, Subcategory: p.subcategory,
+      Company: p.company, Store: p.store, 'Detected Date': p.detected_date, Status: p.status,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'NDB SKU');
+    XLSX.writeFile(wb, 'NDB_SKU_Export.xlsx');
+    Utils.toast('NDB SKU export downloaded.', 'success');
   },
 
   // ─── Helper: keyword match across all object values ─────────────────────────
