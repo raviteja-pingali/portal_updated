@@ -441,7 +441,7 @@ const Pages = {
     <div class="space-y-6">
       <h1 class="text-2xl font-bold text-gray-800">Master Data</h1>
       <div class="flex gap-2 border-b border-gray-200">
-        ${['Stores', 'PEP Products', 'Competitor Products', 'NDB SKU'].map((t, i) => `
+        ${['Stores', 'PEP Products', 'Competitor Products', 'CNDB SKUs'].map((t, i) => `
         <button onclick="Pages.switchMasterTab(${i})" id="mdTab${i}"
           class="px-4 py-2 text-sm font-medium border-b-2 transition ${i === 0 ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">${t}</button>`).join('')}
       </div>
@@ -458,7 +458,7 @@ const Pages = {
       0: Pages._storesTable(Auth.marketStores()),
       1: Pages._productsTable(Data.PRODUCTS),
       2: Pages._competitorTable(),
-      3: Pages._ndbTable(),
+      3: Pages._cndbTable(),
     };
     const bar = idx === 3 ? '' : this._mdExportBar(idx);
     document.getElementById('mdTabContent').innerHTML = bar + content[idx];
@@ -515,233 +515,311 @@ const Pages = {
 
   // ─── Competitor Products ────────────────────────────────────────────────────
 
+  _cpGetActive() {
+    return JSON.parse(localStorage.getItem('cpActiveStatus') || '{}');
+  },
+
+  _cpToggleActive(id) {
+    const map = this._cpGetActive();
+    const current = map[id] !== false;
+    map[id] = !current;
+    localStorage.setItem('cpActiveStatus', JSON.stringify(map));
+    const isNowActive = map[id];
+    const btn   = document.getElementById(`cpToggle_${id}`);
+    const badge = document.getElementById(`cpBadge_${id}`);
+    if (btn) {
+      btn.textContent = isNowActive ? 'Set Inactive' : 'Set Active';
+      btn.className = `text-xs font-medium ${isNowActive ? 'text-gray-500 hover:text-red-600' : 'text-green-600 hover:text-green-800'}`;
+    }
+    if (badge) {
+      badge.textContent = isNowActive ? 'Active' : 'Inactive';
+      badge.className = `inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${isNowActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`;
+    }
+    Utils.toast(`Product marked as ${isNowActive ? 'Active' : 'Inactive'}.`, 'info');
+  },
+
   _competitorTable() {
-    const additions = JSON.parse(localStorage.getItem('cpAdditions') || '[]');
-    const all = [...Data.COMPETITOR_PRODUCTS, ...additions];
+    const additions  = JSON.parse(localStorage.getItem('cpAdditions')    || '[]');
+    const activeMap  = JSON.parse(localStorage.getItem('cpActiveStatus') || '{}');
+    const isAdmin    = Auth.current().role === 'Admin';
+    const all        = [...Data.COMPETITOR_PRODUCTS, ...additions];
+    const exportSvg  = `<svg class="w-3 h-3 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>`;
+
     const cols = [
-      { label:'Packshot', key:'packshot', sortable:false },
-      { label:'SKU',          key:'sku',      sortable:true },
-      { label:'Product Name', key:'name',     sortable:true },
-      { label:'Brand',        key:'brand',    sortable:true },
-      { label:'Category',     key:'category', sortable:true },
+      { label:'Packshot',     key:'packshot', sortable:false },
+      { label:'SKU',          key:'sku',      sortable:true  },
+      { label:'Product Name', key:'name',     sortable:true  },
+      { label:'Brand',        key:'brand',    sortable:true  },
+      { label:'Category',     key:'category', sortable:true  },
+      { label:'Status',       key:'status',   sortable:false },
+      ...(isAdmin ? [{ label:'Actions', key:'actions', sortable:false }] : []),
     ];
-    const rows = all.map(p => Utils.tr([
-      `<img src="${p.packshot || 'https://placehold.co/56x56/CBD5E1/FFFFFF?text=?'}" alt="${p.name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy">`,
-      `<span class="font-mono text-xs text-gray-500">${p.sku}</span>`,
-      `<span class="font-medium text-gray-800">${p.name}</span>`,
-      p.brand, p.category,
-    ]));
+
+    const rows = all.map(p => {
+      const isActive  = activeMap[p.id] !== false;
+      const isCndb    = !!p.source;
+      const badgeCls  = isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500';
+      const statusBadge = `<span id="cpBadge_${p.id}" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badgeCls}">${isActive ? 'Active' : 'Inactive'}</span>`;
+      const cndbBadge   = isCndb ? ' <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">CNDB</span>' : '';
+      const cells = [
+        `<img src="${p.packshot || 'https://placehold.co/56x56/CBD5E1/FFFFFF?text=?'}" alt="${p.name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy">`,
+        `<span class="font-mono text-xs text-gray-500">${p.sku}</span>`,
+        `<span class="font-medium text-gray-800">${p.name}</span>${cndbBadge}`,
+        p.brand, p.category, statusBadge,
+      ];
+      if (isAdmin) {
+        const btnCls = `text-xs font-medium ${isActive ? 'text-gray-500 hover:text-red-600' : 'text-green-600 hover:text-green-800'}`;
+        cells.push(`<button id="cpToggle_${p.id}" onclick="Pages._cpToggleActive('${p.id}')" class="${btnCls}">${isActive ? 'Set Inactive' : 'Set Active'}</button>`);
+      }
+      return Utils.tr(cells);
+    });
+
     return Utils.table(cols, rows);
   },
 
-  // ─── NDB SKU Tab ───────────────────────────────────────────────────────────
+  // ─── CNDB SKU Tab ──────────────────────────────────────────────────────────
 
-  _ndbGet() {
-    const stored = localStorage.getItem('ndbSkus');
-    return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(Data.NDB_SKUS));
+  _cndbGet() {
+    const stored = localStorage.getItem('cndbSkus');
+    return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(Data.CNDB_SKUS));
   },
 
-  _ndbSave(list) {
-    localStorage.setItem('ndbSkus', JSON.stringify(list));
+  _cndbSave(list) {
+    localStorage.setItem('cndbSkus', JSON.stringify(list));
   },
 
-  _ndbTable() {
-    const u = Auth.current();
-    const isAdmin = u.role === 'Admin';
-    const items = this._ndbGet();
+  _cndbStatusBadge(status) {
+    const cls = {
+      'New':            'bg-blue-100 text-blue-800',
+      'Pending Review': 'bg-amber-100 text-amber-800',
+      'Approved':       'bg-green-100 text-green-800',
+      'Rejected':       'bg-red-100 text-red-800',
+      'Irrelevant':     'bg-gray-100 text-gray-500',
+    }[status] || 'bg-gray-100 text-gray-500';
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}">${status}</span>`;
+  },
 
-    const toolbar = isAdmin ? `
+  _cndbTable() {
+    const isAdmin = Auth.current().role === 'Admin';
+    const items   = this._cndbGet();
+    const exportSvg = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>`;
+
+    const toolbar = `
       <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <div class="flex items-center gap-2">
-          <input type="checkbox" id="ndbChkAll" onchange="Pages._ndbToggleAll(this.checked)"
-            class="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer">
-          <span class="text-sm text-gray-500">Select all</span>
-          <button id="ndbSubmitBtn" disabled onclick="Pages._ndbSubmitSelected()"
-            class="ml-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg transition">
-            Submit Selected
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="cndbChkAll" onchange="Pages._cndbToggleAll(this.checked)"
+              class="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer">
+            <span class="text-sm text-gray-500">Select all</span>
+          </label>
+          <button id="cndbReviewBtn" disabled onclick="Pages._cndbSubmitForReview()"
+            class="text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg transition">
+            Submit for Review
           </button>
+          ${isAdmin ? `<button id="cndbMasterBtn" disabled onclick="Pages._cndbSubmitToMaster()"
+            class="text-sm bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg transition">
+            Submit to Master
+          </button>` : ''}
         </div>
-        <button onclick="Pages._ndbExport()"
+        <button onclick="Pages._cndbExport()"
           class="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-          </svg>
-          Export Excel
-        </button>
-      </div>` : `
-      <div class="flex justify-end mb-3">
-        <button onclick="Pages._ndbExport()"
-          class="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-          </svg>
-          Export Excel
+          ${exportSvg} Export Excel
         </button>
       </div>`;
 
-    const thBase = 'px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide';
+    const th = 'px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide';
     const header = `<tr>
-      ${isAdmin ? `<th class="${thBase} w-8"></th>` : ''}
-      <th class="${thBase}">Packshot</th>
-      <th class="${thBase}">Assigned SKU</th>
-      <th class="${thBase}">Product Name</th>
-      <th class="${thBase}">Brand</th>
-      <th class="${thBase}">Category</th>
-      <th class="${thBase}">Subcategory</th>
-      <th class="${thBase}">Company</th>
-      <th class="${thBase}">Store</th>
-      <th class="${thBase}">Detected</th>
-      <th class="${thBase}">Status</th>
-      ${isAdmin ? `<th class="${thBase}">Actions</th>` : ''}
+      <th class="${th} w-8"></th>
+      <th class="${th}">Packshot</th>
+      <th class="${th}">Product Name</th>
+      <th class="${th}">Brand</th>
+      <th class="${th}">Category</th>
+      <th class="${th}">Subcategory</th>
+      <th class="${th}">Store</th>
+      <th class="${th}">Detected</th>
+      <th class="${th}">Images</th>
+      <th class="${th}">Status</th>
+      <th class="${th}">Actions</th>
     </tr>`;
 
     const body = items.length === 0
-      ? `<tr><td colspan="${isAdmin ? 12 : 10}" class="px-4 py-8 text-center text-gray-400 text-sm">No NDB SKUs pending review.</td></tr>`
-      : items.map(p => this._ndbRow(p, isAdmin)).join('');
+      ? `<tr><td colspan="11" class="px-4 py-8 text-center text-gray-400 text-sm">No competitor SKUs pending review.</td></tr>`
+      : items.map(p => this._cndbRow(p, isAdmin)).join('');
 
     return `${toolbar}
     <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">${header}</thead>
-        <tbody id="ndbTbody" class="divide-y divide-gray-100">${body}</tbody>
+        <tbody id="cndbTbody" class="divide-y divide-gray-100">${body}</tbody>
       </table>
     </div>`;
   },
 
-  _ndbRow(p, isAdmin) {
+  _cndbRow(p, isAdmin) {
     if (isAdmin === undefined) isAdmin = Auth.current().role === 'Admin';
-    const statusBadge = p.status === 'Reviewed'
-      ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Reviewed</span>'
-      : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>';
-    const compBadge = p.company === 'PEP'
-      ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">PEP</span>'
-      : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Competitor</span>';
-    const rowBg = p.status === 'Reviewed' ? 'bg-green-50' : '';
-    return `<tr id="ndbRow_${p.id}" class="${rowBg} hover:bg-gray-50 transition-colors">
-      ${isAdmin ? `<td class="px-3 py-2"><input type="checkbox" class="ndbChk w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer" data-id="${p.id}" onchange="Pages._ndbUpdateSubmitBtn()"></td>` : ''}
+    const rowBg = { 'Pending Review':'bg-amber-50', 'Approved':'bg-green-50', 'Rejected':'bg-red-50', 'Irrelevant':'bg-gray-50' }[p.status] || '';
+    const editBtn        = p.status !== 'Approved' ? `<button onclick="Pages._cndbStartEdit('${p.id}')" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Edit</button>` : '';
+    const irrelevantBtn  = (p.status === 'New' || p.status === 'Rejected') ? `<button onclick="Pages._cndbFlagIrrelevant('${p.id}')" class="text-xs text-gray-400 hover:text-gray-600">Irrelevant</button>` : '';
+    const restoreBtn     = p.status === 'Irrelevant' ? `<button onclick="Pages._cndbRestore('${p.id}')" class="text-xs text-blue-500 hover:text-blue-700">Restore</button>` : '';
+    const rejectBtn      = (isAdmin && p.status === 'Pending Review') ? `<button onclick="Pages._cndbReject('${p.id}')" class="text-xs text-red-500 hover:text-red-700 font-medium">Reject</button>` : '';
+    const actions        = [editBtn, irrelevantBtn, restoreBtn, rejectBtn].filter(Boolean).join(' ');
+    return `<tr id="cndbRow_${p.id}" class="${rowBg} hover:bg-opacity-80 transition-colors">
+      <td class="px-3 py-2"><input type="checkbox" class="cndbChk w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer" data-id="${p.id}" data-status="${p.status}" onchange="Pages._cndbUpdateBtns()"></td>
       <td class="px-3 py-2"><img src="${p.packshot}" alt="${p.product_name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100" loading="lazy"></td>
-      <td class="px-3 py-2 font-mono text-xs text-gray-500">${p.sku || '<span class="text-gray-300">—</span>'}</td>
       <td class="px-3 py-2 font-medium text-gray-800 max-w-[180px] truncate" title="${p.product_name}">${p.product_name}</td>
       <td class="px-3 py-2">${p.brand}</td>
       <td class="px-3 py-2">${p.category}</td>
       <td class="px-3 py-2">${p.subcategory}</td>
-      <td class="px-3 py-2">${compBadge}</td>
       <td class="px-3 py-2 text-xs text-gray-500 max-w-[150px] truncate" title="${p.store}">${p.store}</td>
       <td class="px-3 py-2 text-xs text-gray-400">${p.detected_date}</td>
-      <td class="px-3 py-2">${statusBadge}</td>
-      ${isAdmin ? `<td class="px-3 py-2"><button onclick="Pages._ndbStartEdit('${p.id}')" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Edit</button></td>` : ''}
+      <td class="px-3 py-2 text-xs text-gray-500">${p.image_count.toLocaleString()}</td>
+      <td class="px-3 py-2">${this._cndbStatusBadge(p.status)}</td>
+      <td class="px-3 py-2 flex gap-2 items-center">${actions}</td>
     </tr>`;
   },
 
-  _ndbStartEdit(id) {
-    const list = this._ndbGet();
+  _cndbStartEdit(id) {
+    const list = this._cndbGet();
     const p = list.find(x => x.id === id);
     if (!p) return;
-    const row = document.getElementById(`ndbRow_${id}`);
+    const row = document.getElementById(`cndbRow_${id}`);
+    row.className = 'bg-blue-50 transition-colors';
     row.innerHTML = `
-      <td class="px-3 py-2"><input type="checkbox" class="ndbChk w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer" data-id="${p.id}" onchange="Pages._ndbUpdateSubmitBtn()"></td>
-      <td class="px-3 py-2"><img src="${p.packshot}" alt="${p.product_name}" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100"></td>
-      <td class="px-3 py-2"><input id="ndbEsku_${id}" value="${p.sku}" placeholder="e.g. PEP-B099" class="w-28 text-xs border border-gray-300 rounded px-2 py-1 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
-      <td class="px-3 py-2"><input id="ndbEname_${id}" value="${p.product_name}" class="w-40 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
-      <td class="px-3 py-2"><input id="ndbEbrand_${id}" value="${p.brand}" class="w-24 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
-      <td class="px-3 py-2"><input id="ndbEcat_${id}" value="${p.category}" class="w-28 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
-      <td class="px-3 py-2"><input id="ndbEsub_${id}" value="${p.subcategory}" class="w-28 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
-      <td class="px-3 py-2">
-        <select id="ndbEcomp_${id}" class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
-          <option value="PEP" ${p.company === 'PEP' ? 'selected' : ''}>PEP</option>
-          <option value="Competitor" ${p.company === 'Competitor' ? 'selected' : ''}>Competitor</option>
-        </select>
-      </td>
+      <td class="px-3 py-2"></td>
+      <td class="px-3 py-2"><img src="${p.packshot}" alt="" class="w-12 h-12 rounded-lg object-cover shadow-sm border border-gray-100"></td>
+      <td class="px-3 py-2"><input id="cndbEname_${id}" value="${p.product_name}" class="w-40 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
+      <td class="px-3 py-2"><input id="cndbEbrand_${id}" value="${p.brand}" class="w-24 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
+      <td class="px-3 py-2"><input id="cndbEcat_${id}" value="${p.category}" class="w-28 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
+      <td class="px-3 py-2"><input id="cndbEsub_${id}" value="${p.subcategory}" class="w-28 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"></td>
       <td class="px-3 py-2 text-xs text-gray-500">${p.store}</td>
       <td class="px-3 py-2 text-xs text-gray-400">${p.detected_date}</td>
+      <td class="px-3 py-2 text-xs text-gray-500">${p.image_count.toLocaleString()}</td>
       <td class="px-3 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Editing</span></td>
       <td class="px-3 py-2 flex gap-2">
-        <button onclick="Pages._ndbSaveRow('${id}')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-medium">Save</button>
-        <button onclick="Pages._ndbCancelEdit('${id}')" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Cancel</button>
+        <button onclick="Pages._cndbSaveEdit('${id}')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-medium">Save</button>
+        <button onclick="Pages._cndbCancelEdit('${id}')" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Cancel</button>
       </td>`;
-    row.classList.remove('bg-green-50');
-    row.classList.add('bg-blue-50');
   },
 
-  _ndbSaveRow(id) {
-    const list = this._ndbGet();
+  _cndbSaveEdit(id) {
+    const list = this._cndbGet();
     const i = list.findIndex(x => x.id === id);
     if (i === -1) return;
-    list[i].sku          = document.getElementById(`ndbEsku_${id}`).value.trim();
-    list[i].product_name = document.getElementById(`ndbEname_${id}`).value.trim();
-    list[i].brand        = document.getElementById(`ndbEbrand_${id}`).value.trim();
-    list[i].category     = document.getElementById(`ndbEcat_${id}`).value.trim();
-    list[i].subcategory  = document.getElementById(`ndbEsub_${id}`).value.trim();
-    list[i].company      = document.getElementById(`ndbEcomp_${id}`).value;
-    list[i].status       = 'Reviewed';
-    this._ndbSave(list);
-    const row = document.getElementById(`ndbRow_${id}`);
-    row.outerHTML = this._ndbRow(list[i], true);
-    this._ndbUpdateSubmitBtn();
+    list[i].product_name = document.getElementById(`cndbEname_${id}`).value.trim();
+    list[i].brand        = document.getElementById(`cndbEbrand_${id}`).value.trim();
+    list[i].category     = document.getElementById(`cndbEcat_${id}`).value.trim();
+    list[i].subcategory  = document.getElementById(`cndbEsub_${id}`).value.trim();
+    this._cndbSave(list);
+    document.getElementById(`cndbRow_${id}`).outerHTML = this._cndbRow(list[i], Auth.current().role === 'Admin');
+    this._cndbUpdateBtns();
   },
 
-  _ndbCancelEdit(id) {
-    const list = this._ndbGet();
+  _cndbCancelEdit(id) {
+    const list = this._cndbGet();
     const p = list.find(x => x.id === id);
     if (!p) return;
-    document.getElementById(`ndbRow_${id}`).outerHTML = this._ndbRow(p, true);
-    this._ndbUpdateSubmitBtn();
+    document.getElementById(`cndbRow_${id}`).outerHTML = this._cndbRow(p, Auth.current().role === 'Admin');
+    this._cndbUpdateBtns();
   },
 
-  _ndbToggleAll(checked) {
-    document.querySelectorAll('.ndbChk').forEach(c => { c.checked = checked; });
-    this._ndbUpdateSubmitBtn();
+  _cndbFlagIrrelevant(id) {
+    const list = this._cndbGet();
+    const i = list.findIndex(x => x.id === id);
+    if (i === -1) return;
+    list[i].status = 'Irrelevant';
+    this._cndbSave(list);
+    document.getElementById(`cndbRow_${id}`).outerHTML = this._cndbRow(list[i], Auth.current().role === 'Admin');
+    this._cndbUpdateBtns();
   },
 
-  _ndbUpdateSubmitBtn() {
-    const chks = [...document.querySelectorAll('.ndbChk')];
-    const checkedCount = chks.filter(c => c.checked).length;
-    const btn = document.getElementById('ndbSubmitBtn');
-    if (btn) btn.disabled = checkedCount === 0;
-    const allChk = document.getElementById('ndbChkAll');
+  _cndbRestore(id) {
+    const list = this._cndbGet();
+    const i = list.findIndex(x => x.id === id);
+    if (i === -1) return;
+    list[i].status = 'New';
+    this._cndbSave(list);
+    document.getElementById(`cndbRow_${id}`).outerHTML = this._cndbRow(list[i], Auth.current().role === 'Admin');
+    this._cndbUpdateBtns();
+  },
+
+  _cndbReject(id) {
+    if (Auth.current().role !== 'Admin') return;
+    const list = this._cndbGet();
+    const i = list.findIndex(x => x.id === id);
+    if (i === -1) return;
+    list[i].status = 'Rejected';
+    this._cndbSave(list);
+    document.getElementById(`cndbRow_${id}`).outerHTML = this._cndbRow(list[i], true);
+    this._cndbUpdateBtns();
+    Utils.toast('Row rejected and returned for rework.', 'warning');
+  },
+
+  _cndbToggleAll(checked) {
+    document.querySelectorAll('.cndbChk').forEach(c => { c.checked = checked; });
+    this._cndbUpdateBtns();
+  },
+
+  _cndbUpdateBtns() {
+    const chks        = [...document.querySelectorAll('.cndbChk')];
+    const checked     = chks.filter(c => c.checked);
+    const hasReviewable    = checked.some(c => c.dataset.status === 'New' || c.dataset.status === 'Rejected');
+    const hasPendingReview = checked.some(c => c.dataset.status === 'Pending Review');
+    const reviewBtn   = document.getElementById('cndbReviewBtn');
+    const masterBtn   = document.getElementById('cndbMasterBtn');
+    if (reviewBtn) reviewBtn.disabled = !hasReviewable;
+    if (masterBtn) masterBtn.disabled = !hasPendingReview;
+    const allChk = document.getElementById('cndbChkAll');
     if (allChk) {
-      allChk.indeterminate = checkedCount > 0 && checkedCount < chks.length;
-      allChk.checked = chks.length > 0 && checkedCount === chks.length;
+      allChk.indeterminate = checked.length > 0 && checked.length < chks.length;
+      allChk.checked = chks.length > 0 && checked.length === chks.length;
     }
   },
 
-  _ndbSubmitSelected() {
-    const list = this._ndbGet();
-    const checkedIds = [...document.querySelectorAll('.ndbChk:checked')].map(c => c.dataset.id);
-    if (checkedIds.length === 0) return;
-    const toSubmit = list.filter(p => checkedIds.includes(p.id));
-    const missing = toSubmit.filter(p => !p.sku);
-    if (missing.length > 0) {
-      Utils.toast('Please assign a SKU to all selected rows before submitting.', 'warning');
-      return;
-    }
-    const pepAdd = JSON.parse(localStorage.getItem('pepAdditions') || '[]');
-    const cpAdd  = JSON.parse(localStorage.getItem('cpAdditions')  || '[]');
-    toSubmit.forEach(p => {
-      const entry = { id:p.id, sku:p.sku, name:p.product_name, brand:p.brand, category:p.category, subcategory:p.subcategory, packshot:p.packshot, market:'m1' };
-      if (p.company === 'PEP') pepAdd.push(entry);
-      else cpAdd.push(entry);
+  _cndbSubmitForReview() {
+    const list = this._cndbGet();
+    const ids  = [...document.querySelectorAll('.cndbChk:checked')]
+      .filter(c => c.dataset.status === 'New' || c.dataset.status === 'Rejected')
+      .map(c => c.dataset.id);
+    if (!ids.length) return;
+    ids.forEach(id => { const i = list.findIndex(x => x.id === id); if (i !== -1) list[i].status = 'Pending Review'; });
+    this._cndbSave(list);
+    Utils.toast(`${ids.length} SKU(s) submitted for admin review.`, 'success');
+    document.getElementById('mdTabContent').innerHTML = this._cndbTable();
+  },
+
+  _cndbSubmitToMaster() {
+    if (Auth.current().role !== 'Admin') return;
+    const list  = this._cndbGet();
+    const ids   = [...document.querySelectorAll('.cndbChk:checked')]
+      .filter(c => c.dataset.status === 'Pending Review')
+      .map(c => c.dataset.id);
+    if (!ids.length) return;
+    const cpAdd = JSON.parse(localStorage.getItem('cpAdditions') || '[]');
+    ids.forEach(id => {
+      const i = list.findIndex(x => x.id === id);
+      if (i === -1) return;
+      list[i].status = 'Approved';
+      cpAdd.push({ id:list[i].id, sku:list[i].id, name:list[i].product_name, brand:list[i].brand, category:list[i].category, subcategory:list[i].subcategory, packshot:list[i].packshot, market:'m1', source:'CNDB' });
     });
-    localStorage.setItem('pepAdditions', JSON.stringify(pepAdd));
-    localStorage.setItem('cpAdditions',  JSON.stringify(cpAdd));
-    this._ndbSave(list.filter(p => !checkedIds.includes(p.id)));
-    Utils.toast(`${toSubmit.length} SKU(s) submitted successfully.`, 'success');
-    document.getElementById('mdTabContent').innerHTML = this._ndbTable();
+    localStorage.setItem('cpAdditions', JSON.stringify(cpAdd));
+    this._cndbSave(list);
+    Utils.toast(`${ids.length} SKU(s) approved and added to Competitor Products.`, 'success');
+    document.getElementById('mdTabContent').innerHTML = this._cndbTable();
   },
 
-  _ndbExport() {
-    const list = this._ndbGet();
-    if (!list.length) { Utils.toast('No NDB SKUs to export.', 'warning'); return; }
+  _cndbExport() {
+    const list = this._cndbGet();
+    if (!list.length) { Utils.toast('No CNDB SKUs to export.', 'warning'); return; }
     const rows = list.map(p => ({
-      ID: p.id, SKU: p.sku, 'Product Name': p.product_name,
+      ID: p.id, 'Product Name': p.product_name,
       Brand: p.brand, Category: p.category, Subcategory: p.subcategory,
-      Company: p.company, Store: p.store, 'Detected Date': p.detected_date, Status: p.status,
+      Store: p.store, 'Detected Date': p.detected_date, 'Image Count': p.image_count, Status: p.status,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'NDB SKU');
-    XLSX.writeFile(wb, 'NDB_SKU_Export.xlsx');
-    Utils.toast('NDB SKU export downloaded.', 'success');
+    XLSX.utils.book_append_sheet(wb, ws, 'CNDB SKU');
+    XLSX.writeFile(wb, 'CNDB_SKU_Export.xlsx');
+    Utils.toast('CNDB SKU export downloaded.', 'success');
   },
 
   // ─── Helper: keyword match across all object values ─────────────────────────
