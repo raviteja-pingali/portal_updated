@@ -394,6 +394,7 @@ const Pages = {
   _goToImageRepo(searchTerm) {
     App.navigate('image-repo');
     setTimeout(() => {
+      App._irCurrentTab = 0;
       const s = document.getElementById('ir_search');
       if (s) { s.value = searchTerm; Pages.filterGallery(); }
     }, 100);
@@ -402,6 +403,7 @@ const Pages = {
   _goToImageRepoFraud(fraudType) {
     App.navigate('image-repo');
     setTimeout(() => {
+      App._irCurrentTab = 0;
       const el = document.getElementById('ir_fraudtype');
       if (el) { el.value = fraudType; Pages.filterGallery(); }
     }, 100);
@@ -1031,13 +1033,18 @@ const Pages = {
     const totalG   = Data.IMAGE_GALLERY.length;
     const flaggedG = Data.IMAGE_GALLERY.filter(i => i.fraud_types.length > 0).length;
     const cleanG   = totalG - flaggedG;
+    const tabCls = active => `px-4 py-2 text-sm font-medium border-b-2 transition ${active ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`;
     return `
     <div class="space-y-4">
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-gray-800">Image Repository</h1>
         <span id="ir_count" class="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full"></span>
       </div>
-      <!-- Compact quality summary -->
+      <div class="flex gap-0 border-b border-gray-200">
+        <button id="irTab0" onclick="Pages._irSwitchTab(0)" class="${tabCls(true)}">Image View</button>
+        <button id="irTab1" onclick="Pages._irSwitchTab(1)" class="${tabCls(false)}">Visit View</button>
+      </div>
+      <!-- Quality summary bar -->
       <div class="bg-white border border-gray-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 shadow-sm">
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Quality</span>
         <span class="flex items-center gap-1.5 text-xs text-gray-600"><span class="w-2 h-2 rounded-full bg-green-400"></span>${cleanG} Clean</span>
@@ -1052,7 +1059,7 @@ const Pages = {
           </button>`;
         }).join('')}
       </div>
-      <!-- Search & filters -->
+      <!-- Shared search & filters -->
       <div class="relative">
         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1060,48 +1067,113 @@ const Pages = {
           </svg>
         </span>
         <input id="ir_search" type="text" placeholder="Search by store, retailer, brand, SKU, asset name…"
-          oninput="Pages.filterGallery()"
+          oninput="Pages._irRefresh()"
           class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 focus:border-blue-500 rounded-xl text-sm bg-white outline-none transition shadow-sm" />
       </div>
       <div class="flex flex-wrap gap-2 items-center">
-        <select id="ir_fraudtype" onchange="Pages.filterGallery()"
+        <select id="ir_fraudtype" onchange="Pages._irRefresh()"
           class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white h-9 focus:ring-2 focus:ring-blue-500 outline-none">
           <option value="">All Images</option>
           <option value="__clean__">Clean only</option>
           ${Data.FRAUD_TYPES.map(ft => `<option value="${ft}">${ft}</option>`).join('')}
         </select>
-        <select id="ir_brand" onchange="Pages.filterGallery()"
+        <select id="ir_brand" onchange="Pages._irRefresh()"
           class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white h-9 focus:ring-2 focus:ring-blue-500 outline-none">
           <option value="">All Brands</option>
           ${['Coca-Cola','PepsiCo','Dr Pepper','Monster','Red Bull'].map(b => `<option>${b}</option>`).join('')}
         </select>
-        <select id="ir_retailer" onchange="Pages.filterGallery()"
+        <select id="ir_retailer" onchange="Pages._irRefresh()"
           class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white h-9 focus:ring-2 focus:ring-blue-500 outline-none">
           <option value="">All Retailers</option>
           ${['Walmart','Kroger','Target','Costco','Publix','H-E-B','Whole Foods','Albertsons'].map(r => `<option>${r}</option>`).join('')}
         </select>
         <div class="flex items-center gap-1">
           <span class="text-xs text-gray-500">Visit date</span>
-          <input id="ir_date_from" type="date" onchange="Pages.filterGallery()"
+          <input id="ir_date_from" type="date" onchange="Pages._irRefresh()"
             class="border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white h-9 focus:ring-2 focus:ring-blue-500 outline-none" />
           <span class="text-xs text-gray-400">–</span>
-          <input id="ir_date_to" type="date" onchange="Pages.filterGallery()"
+          <input id="ir_date_to" type="date" onchange="Pages._irRefresh()"
             class="border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white h-9 focus:ring-2 focus:ring-blue-500 outline-none" />
         </div>
-        <button onclick="Pages.filterGallery(true)"
+        <button onclick="Pages._irRefresh(true)"
           class="text-sm text-gray-500 border border-gray-200 rounded-lg px-3 py-2 h-9 hover:bg-gray-50 transition">Clear</button>
       </div>
-      <!-- Gallery grid -->
-      <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+      <!-- Tab content area -->
+      <div id="irTabContent"></div>
     </div>
-    ${Utils.modal('imgDetailModal', 'Image Detail', `<div id="imgDetailContent"></div>`, '&nbsp;')}`;
+    <!-- Two-panel image detail overlay -->
+    <div id="imgDetailOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden"
+      onclick="if(event.target===this)Pages._irCloseDetail()">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+        <div id="imgDetailHeader" class="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
+          <h3 class="font-semibold text-gray-800 text-lg">Image Detail</h3>
+          <div class="flex items-center gap-2">
+            <button id="imgDetailDownload"
+              class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              Download
+            </button>
+            <button onclick="Pages._irCloseDetail()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+          </div>
+        </div>
+        <div id="imgDetailBody" class="flex overflow-hidden flex-1 min-h-0"></div>
+      </div>
+    </div>`;
   },
 
-  afterImageRepository() { Pages.filterGallery(); },
+  afterImageRepository() {
+    App._irCurrentTab = 0;
+    Pages._irRefresh();
+  },
 
   _setGalleryFraudFilter(fraudType) {
     const el = document.getElementById('ir_fraudtype');
-    if (el) { el.value = fraudType; this.filterGallery(); }
+    if (el) { el.value = fraudType; this._irRefresh(); }
+  },
+
+  _irSwitchTab(idx) {
+    App._irCurrentTab = idx;
+    const tabCls = active => `px-4 py-2 text-sm font-medium border-b-2 transition ${active ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`;
+    const t0 = document.getElementById('irTab0');
+    const t1 = document.getElementById('irTab1');
+    if (t0) t0.className = tabCls(idx === 0);
+    if (t1) t1.className = tabCls(idx === 1);
+    this._irRefresh();
+  },
+
+  _irRefresh(reset = false) {
+    if (reset) {
+      ['ir_search','ir_fraudtype','ir_brand','ir_retailer','ir_date_from','ir_date_to'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+    }
+    const tab = App._irCurrentTab ?? 0;
+    if (tab === 0) this.filterGallery();
+    else this._filterVisitView();
+  },
+
+  _irFilteredImgs() {
+    const search    = document.getElementById('ir_search')?.value?.toLowerCase() || '';
+    const fraudType = document.getElementById('ir_fraudtype')?.value || '';
+    const brand     = document.getElementById('ir_brand')?.value     || '';
+    const retailer  = document.getElementById('ir_retailer')?.value  || '';
+    const dateFrom  = document.getElementById('ir_date_from')?.value || '';
+    const dateTo    = document.getElementById('ir_date_to')?.value   || '';
+    return Data.IMAGE_GALLERY.filter(i => {
+      const ftMatch = !fraudType ? true : fraudType === '__clean__' ? i.fraud_types.length === 0 : i.fraud_types.includes(fraudType);
+      return ftMatch &&
+        (!search   || [i.retailer, i.brand, i.sku, i.asset_name, i.store_name, i.visit_id].some(v => String(v).toLowerCase().includes(search))) &&
+        (!brand    || i.brand    === brand)    &&
+        (!retailer || i.retailer === retailer) &&
+        (!dateFrom || i.visit_date >= dateFrom) &&
+        (!dateTo   || i.visit_date <= dateTo);
+    });
+  },
+
+  _irCloseDetail() {
+    document.getElementById('imgDetailOverlay')?.classList.add('hidden');
   },
 
   filterGallery(reset = false) {
@@ -1110,151 +1182,267 @@ const Pages = {
         const el = document.getElementById(id); if (el) el.value = '';
       });
     }
-    const search    = document.getElementById('ir_search')?.value?.toLowerCase()   || '';
-    const fraudType = document.getElementById('ir_fraudtype')?.value || '';
-    const brand     = document.getElementById('ir_brand')?.value     || '';
-    const retailer  = document.getElementById('ir_retailer')?.value  || '';
-    const dateFrom  = document.getElementById('ir_date_from')?.value || '';
-    const dateTo    = document.getElementById('ir_date_to')?.value   || '';
-
-    const imgs = Data.IMAGE_GALLERY.filter(i => {
-      const ftMatch = !fraudType
-        ? true
-        : fraudType === '__clean__'
-          ? i.fraud_types.length === 0
-          : i.fraud_types.includes(fraudType);
-      return ftMatch &&
-        (!search   || [i.retailer, i.brand, i.sku, i.asset_name, i.store_name].some(v => String(v).toLowerCase().includes(search))) &&
-        (!brand    || i.brand    === brand)    &&
-        (!retailer || i.retailer === retailer) &&
-        (!dateFrom || i.visit_date >= dateFrom) &&
-        (!dateTo   || i.visit_date <= dateTo);
-    });
-
+    const imgs = this._irFilteredImgs();
     const countEl = document.getElementById('ir_count');
     if (countEl) countEl.textContent = `${imgs.length} image${imgs.length !== 1 ? 's' : ''}`;
 
-    const scoreColor = s => s >= 80 ? 'bg-green-500' : s >= 60 ? 'bg-amber-400' : 'bg-red-400';
-    const scoreText  = s => s >= 80 ? 'text-green-700' : s >= 60 ? 'text-amber-700' : 'text-red-600';
+    const sc = s => s >= 80 ? 'bg-green-500' : s >= 60 ? 'bg-amber-400' : 'bg-red-400';
+    const st = s => s >= 80 ? 'text-green-700' : s >= 60 ? 'text-amber-700' : 'text-red-600';
 
-    const grid = document.getElementById('galleryGrid');
-    grid.innerHTML = imgs.length ? imgs.map(i => `
-      <div onclick="Pages.showImageDetail('${i.id}')"
-        class="cursor-pointer group bg-white rounded-2xl overflow-hidden border border-gray-200 hover:border-blue-400 hover:shadow-lg transition-all duration-200">
-        <!-- Image placeholder — bigger & more realistic -->
-        <div class="relative h-52 flex flex-col items-center justify-center overflow-hidden"
-          style="background: linear-gradient(135deg, #${i.color}18 0%, #${i.color}08 100%);">
-          <!-- Shelf illustration -->
-          <div class="w-full px-4 space-y-2.5 opacity-60">
-            ${[0,1,2].map(row => `
-            <div class="flex gap-1.5 justify-center">
-              ${Array.from({length:5},(_,ci)=>`
-              <div class="rounded h-10 flex-1 flex items-end justify-center pb-1"
-                style="background:#${i.color}${['44','33','55','22','44'][ci]}">
-                <div class="w-1 h-3 rounded-full" style="background:#${i.color}99"></div>
-              </div>`).join('')}
+    const tc = document.getElementById('irTabContent');
+    if (!tc) return;
+    tc.innerHTML = imgs.length
+      ? `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${
+        imgs.map(i => `
+        <div onclick="Pages.showImageDetail('${i.id}')"
+          class="cursor-pointer group bg-white rounded-2xl overflow-hidden border border-gray-200 hover:border-blue-400 hover:shadow-lg transition-all duration-200">
+          <div class="relative h-48 flex flex-col items-center justify-center overflow-hidden"
+            style="background:linear-gradient(135deg,#${i.color}18 0%,#${i.color}08 100%);">
+            <div class="w-full px-4 space-y-1.5 opacity-65">
+              ${[0,1,2,3].map(() => `
+              <div class="flex gap-1 justify-center">
+                ${Array.from({length:6},(_,ci) => `
+                <div class="rounded-sm flex-1 h-8 flex items-end justify-center pb-1"
+                  style="background:#${i.color}${['44','33','55','22','44','33'][ci]}">
+                  <div class="w-0.5 h-2 rounded-full" style="background:#${i.color}99"></div>
+                </div>`).join('')}
+              </div>
+              <div class="h-0.5 bg-gray-300 rounded mx-1 opacity-40"></div>`).join('')}
             </div>
-            <div class="h-1 bg-gray-300 rounded mx-1 opacity-50"></div>`).join('')}
-          </div>
-          <!-- ID badge -->
-          <div class="absolute top-2 left-2 bg-white/90 backdrop-blur rounded-md px-1.5 py-0.5 text-xs font-mono text-gray-500 shadow-sm">
-            ${i.id}
-          </div>
-          <!-- Quality badge -->
-          <div class="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur rounded-md px-1.5 py-0.5 shadow-sm">
-            <div class="w-1.5 h-1.5 rounded-full ${scoreColor(i.quality_score)}"></div>
-            <span class="text-xs font-semibold ${scoreText(i.quality_score)}">${i.quality_score.toFixed(0)}</span>
-          </div>
-          <!-- Download button (visible on hover) -->
-          <button onclick="event.stopPropagation(); Pages.downloadImage('${i.id}')"
-            title="Download image"
-            class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur rounded-lg p-1.5 shadow-sm hover:bg-blue-50 hover:text-blue-600 text-gray-500">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-          </button>
-        </div>
-        <!-- Card metadata -->
-        <div class="p-3 border-t border-gray-100">
-          <p class="text-sm font-semibold text-gray-800 truncate group-hover:text-blue-700 transition-colors">${i.store_name}</p>
-          <p class="text-xs text-gray-500 mt-0.5">${i.retailer} · ${i.brand}</p>
-          <div class="flex items-center justify-between mt-2">
-            <span class="text-xs text-gray-400">${i.visit_date}</span>
-            <span class="text-xs text-gray-400 font-mono">${i.sku}</span>
-          </div>
-          <!-- Quality bar -->
-          <div class="mt-2 flex items-center gap-1.5">
-            <div class="flex-1 bg-gray-100 rounded-full h-1.5">
-              <div class="${scoreColor(i.quality_score)} h-1.5 rounded-full transition-all" style="width:${i.quality_score}%"></div>
+            <div class="absolute top-2 left-2 bg-white/90 backdrop-blur rounded px-1.5 py-0.5 text-xs font-mono text-gray-500 shadow-sm">${i.id}</div>
+            <div class="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur rounded px-1.5 py-0.5 shadow-sm">
+              <div class="w-1.5 h-1.5 rounded-full ${sc(i.quality_score)}"></div>
+              <span class="text-xs font-semibold ${st(i.quality_score)}">${i.quality_score.toFixed(0)}</span>
             </div>
-            <span class="text-xs ${scoreText(i.quality_score)} font-medium">${i.quality_score.toFixed(0)}%</span>
+            ${i.outside_fence ? `<div class="absolute bottom-8 left-2 bg-orange-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">Outside Fence</div>` : ''}
+            <button onclick="event.stopPropagation();Pages.downloadImage('${i.id}')" title="Download"
+              class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur rounded-lg p-1.5 shadow-sm hover:bg-blue-50 hover:text-blue-600 text-gray-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+            </button>
           </div>
-          ${i.fraud_types.length > 0 ? `<div class="mt-2 flex flex-wrap gap-1">
-            ${i.fraud_types.map(ft => `<span class="text-xs bg-red-50 text-red-600 border border-red-100 px-1.5 py-0.5 rounded">${ft}</span>`).join('')}
-          </div>` : ''}
+          <div class="p-3 border-t border-gray-100">
+            <p class="text-xs font-mono text-blue-600 mb-0.5">${i.visit_id}</p>
+            <p class="text-sm font-semibold text-gray-800 truncate group-hover:text-blue-700 transition-colors">${i.store_name}</p>
+            <p class="text-xs text-gray-500 mt-0.5">${i.asset_name}</p>
+            <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="${sc(i.quality_score)} h-1.5 rounded-full" style="width:${i.quality_score}%"></div>
+            </div>
+            ${i.fraud_types.length > 0
+              ? `<div class="mt-1.5 flex flex-wrap gap-1">
+                  ${i.fraud_types.slice(0,2).map(ft => `<span class="text-[10px] bg-red-50 text-red-600 border border-red-100 px-1.5 py-0.5 rounded">${ft}</span>`).join('')}
+                  ${i.fraud_types.length > 2 ? `<span class="text-[10px] text-gray-400">+${i.fraud_types.length-2}</span>` : ''}
+                </div>`
+              : `<p class="mt-1 text-[10px] text-green-600">✓ Clean</p>`}
+          </div>
+        </div>`).join('')
+      }</div>`
+      : `<p class="text-center text-gray-400 py-16 text-sm">No images match your filters.</p>`;
+  },
+
+  _filterVisitView() {
+    const imgs = this._irFilteredImgs();
+    const countEl = document.getElementById('ir_count');
+    if (countEl) countEl.textContent = `${imgs.length} image${imgs.length !== 1 ? 's' : ''}`;
+    const tc = document.getElementById('irTabContent');
+    if (!tc) return;
+
+    if (imgs.length === 0) {
+      tc.innerHTML = `<p class="text-center text-gray-400 py-16 text-sm">No images match your filters.</p>`;
+      return;
+    }
+
+    const visitMap = new Map();
+    imgs.forEach(img => {
+      if (!visitMap.has(img.visit_id)) visitMap.set(img.visit_id, { date: img.visit_date, store: img.store_name, images: [] });
+      visitMap.get(img.visit_id).images.push(img);
+    });
+    const sortedVisits = [...visitMap.entries()].sort((a, b) => b[1].date.localeCompare(a[1].date));
+    const dateGroups = new Map();
+    sortedVisits.forEach(([vid, v]) => {
+      if (!dateGroups.has(v.date)) dateGroups.set(v.date, []);
+      dateGroups.get(v.date).push([vid, v]);
+    });
+
+    const sc = s => s >= 80 ? 'bg-green-500' : s >= 60 ? 'bg-amber-400' : 'bg-red-400';
+    const fmtDate = d => { const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' }); };
+
+    tc.innerHTML = [...dateGroups.entries()].map(([date, visits]) => `
+      <div class="mb-6">
+        <div class="sticky top-0 bg-gray-50 py-2 px-3 rounded-lg mb-3 border border-gray-200 z-10">
+          <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">${fmtDate(date)}</span>
+          <span class="ml-2 text-xs text-gray-400">${visits.length} visit${visits.length !== 1 ? 's' : ''}</span>
         </div>
-      </div>`).join('')
-      : `<p class="col-span-full text-center text-gray-400 py-16 text-sm">No images match your filters.</p>`;
+        <div class="space-y-3">
+          ${visits.map(([vid, v]) => {
+            const allImgs = v.images;
+            const flagged  = allImgs.filter(i => i.fraud_types.length > 0).length;
+            const avgScore = allImgs.reduce((a, i) => a + i.quality_score, 0) / allImgs.length;
+            const sCls = avgScore >= 80 ? 'text-green-600' : avgScore >= 60 ? 'text-amber-600' : 'text-red-600';
+            return `<div class="bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all p-4">
+              <div class="flex items-start justify-between mb-3">
+                <div>
+                  <span class="text-sm font-mono font-semibold text-blue-600">${vid}</span>
+                  <p class="text-sm font-medium text-gray-800 mt-0.5">${v.store}</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs font-semibold ${sCls}">${avgScore.toFixed(0)}% avg quality</span>
+                  ${flagged > 0 ? `<p class="text-xs text-red-500 mt-0.5">${flagged} flagged</p>` : `<p class="text-xs text-green-600 mt-0.5">✓ All clean</p>`}
+                </div>
+              </div>
+              <div class="flex gap-2 overflow-x-auto pb-1">
+                ${allImgs.map(img => `
+                <div onclick="Pages.showImageDetail('${img.id}')"
+                  class="flex-shrink-0 cursor-pointer group relative rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition"
+                  style="width:88px;height:72px;background:linear-gradient(135deg,#${img.color}20,#${img.color}0a)">
+                  <div class="absolute inset-0 flex flex-col justify-center px-1.5 space-y-0.5 opacity-55">
+                    ${[0,1,2].map(() => `
+                    <div class="flex gap-0.5">
+                      ${Array.from({length:4},(_,ci)=>`<div class="flex-1 rounded-sm h-3" style="background:#${img.color}${['44','33','55','22'][ci]}"></div>`).join('')}
+                    </div>
+                    <div class="h-px bg-white/50"></div>`).join('')}
+                  </div>
+                  <div class="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 transition"></div>
+                  <div class="absolute top-1 right-1 w-2 h-2 rounded-full ${sc(img.quality_score)}"></div>
+                  ${img.fraud_types.length > 0 ? `<div class="absolute top-1 left-1 w-2 h-2 rounded-full bg-red-500"></div>` : ''}
+                  <div class="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-[8px] px-1 py-0.5 truncate">${img.asset_name}</div>
+                </div>`).join('')}
+              </div>
+              <div class="flex flex-wrap gap-1.5 mt-2.5">
+                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">${allImgs.length} captures</span>
+                ${allImgs[0]?.route ? `<span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">${allImgs[0].route}</span>` : ''}
+                ${allImgs[0]?.outside_fence ? `<span class="text-xs bg-orange-50 text-orange-600 border border-orange-100 px-2 py-0.5 rounded">Outside Fence</span>` : ''}
+                ${allImgs[0]?.user_name ? `<span class="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded">By ${allImgs[0].user_name}</span>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `).join('');
   },
 
   showImageDetail(id) {
     const img = Data.IMAGE_GALLERY.find(i => i.id === id);
     if (!img) return;
-    const scoreColor = img.quality_score >= 80 ? 'text-green-600' : img.quality_score >= 60 ? 'text-amber-600' : 'text-red-600';
-    document.getElementById('imgDetailContent').innerHTML = `
-    <div class="space-y-4">
-      <div class="rounded-xl overflow-hidden border border-gray-100 relative"
-        style="background:linear-gradient(135deg,#${img.color}18,#${img.color}08); height:200px; display:flex; align-items:center; justify-content:center;">
-        <div class="w-full px-8 space-y-3 opacity-70">
-          ${[0,1,2].map(() => `
-          <div class="flex gap-2 justify-center">
-            ${Array.from({length:5},(_,ci)=>`
-            <div class="rounded h-12 flex-1" style="background:#${img.color}${['44','33','55','22','44'][ci]}"></div>`).join('')}
+    const overlay = document.getElementById('imgDetailOverlay');
+    if (!overlay) return;
+
+    document.querySelector('#imgDetailHeader h3').textContent = `${img.id} · ${img.asset_name}`;
+    const dlBtn = document.getElementById('imgDetailDownload');
+    if (dlBtn) dlBtn.onclick = () => Pages.downloadImage(img.id);
+
+    const scBar  = img.quality_score >= 80 ? 'bg-green-500' : img.quality_score >= 60 ? 'bg-amber-400' : 'bg-red-400';
+    const scText = img.quality_score >= 80 ? 'text-green-600' : img.quality_score >= 60 ? 'text-amber-600' : 'text-red-600';
+
+    document.getElementById('imgDetailBody').innerHTML = `
+      <!-- Left panel: captured shelf image + metadata -->
+      <div class="flex-1 flex flex-col border-r border-gray-100 overflow-y-auto min-w-0">
+        <div class="relative flex-shrink-0"
+          style="background:linear-gradient(135deg,#${img.color}22,#${img.color}0a);height:260px;display:flex;align-items:center;justify-content:center;">
+          <div class="w-full px-6 space-y-2 opacity-70">
+            ${[0,1,2,3].map(() => `
+            <div class="flex gap-1.5 justify-center">
+              ${Array.from({length:6},(_,ci) => `
+              <div class="rounded-sm flex-1 h-11 flex flex-col items-center justify-end pb-1.5"
+                style="background:#${img.color}${['44','33','55','22','44','33'][ci]}">
+                <div class="w-1 h-3.5 rounded-full opacity-70" style="background:#${img.color}cc"></div>
+              </div>`).join('')}
+            </div>
+            <div class="h-1 bg-white/40 rounded mx-2"></div>`).join('')}
           </div>
-          <div class="h-1 bg-gray-300 rounded mx-2"></div>`).join('')}
+          ${img.outside_fence ? `<div class="absolute top-2 left-2 bg-orange-500 text-white text-xs font-semibold px-2 py-0.5 rounded-md shadow">Outside Fence</div>` : ''}
+          <div class="absolute top-2 right-2 bg-white/95 rounded-lg px-2 py-1 shadow-sm flex items-center gap-1.5">
+            <div class="w-2 h-2 rounded-full ${scBar}"></div>
+            <span class="text-xs font-semibold ${scText}">${img.quality_score.toFixed(0)}%</span>
+          </div>
         </div>
-        <div class="absolute bottom-2 right-2 bg-white/90 rounded-lg px-2 py-1 text-xs font-semibold ${scoreColor}">
-          Quality: ${img.quality_score.toFixed(1)}%
+        <div class="p-5 space-y-3">
+          <div class="grid grid-cols-2 gap-x-6 gap-y-2.5">
+            ${[['Visit ID',img.visit_id],['Visit Date',img.visit_date],
+               ['Store',img.store_name],['Retailer',img.retailer],
+               ['Brand',img.brand],['SKU',img.sku],
+               ['Asset',img.asset_name],['Route',img.route||'—'],
+               ['Captured by',img.user_name||'—'],['Quality',img.quality_score.toFixed(1)+'%']]
+              .map(([k,v]) => `<div><p class="text-xs text-gray-400">${k}</p><p class="font-medium text-gray-800 text-sm">${v}</p></div>`).join('')}
+          </div>
+          ${img.fraud_types.length > 0 ? `
+          <div class="border-t pt-3">
+            <p class="text-xs font-semibold text-red-600 mb-2">⚑ Fraud Flags Detected</p>
+            <div class="flex flex-wrap gap-1.5">
+              ${img.fraud_types.map(ft => `<span class="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-lg font-medium">${ft}</span>`).join('')}
+            </div>
+          </div>` : `
+          <div class="border-t pt-3">
+            <p class="text-xs font-semibold text-green-600">✓ No fraud flags — image is clean</p>
+          </div>`}
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-3 text-sm">
-        ${[['Visit ID',img.visit_id],['Visit Date',img.visit_date],['Store',img.store_name],
-           ['Retailer',img.retailer],['Brand',img.brand],['SKU',img.sku],
-           ['Asset',img.asset_name],['Quality Score',img.quality_score.toFixed(1)+'%']]
-          .map(([k,v]) => `<div><p class="text-xs text-gray-400">${k}</p><p class="font-medium text-gray-800">${v}</p></div>`).join('')}
-      </div>
-      <div class="border-t pt-3">
-        <p class="text-xs font-semibold text-gray-600 mb-1">Realo-gram Detection</p>
-        <p class="text-xs text-gray-400">Shelf recreation · ${Math.floor(Math.random()*8+3)} products detected · avg confidence ${(Math.random()*20+78).toFixed(0)}%</p>
-      </div>
-      ${img.fraud_types.length > 0 ? `
-      <div class="border-t pt-3">
-        <p class="text-xs font-semibold text-gray-600 mb-2">Fraud Flags</p>
-        <div class="flex flex-wrap gap-1.5">
-          ${img.fraud_types.map(ft => `<span class="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-lg font-medium">⚑ ${ft}</span>`).join('')}
+      <!-- Right panel: realogram -->
+      <div class="flex-1 flex flex-col overflow-y-auto min-w-0">
+        <div class="px-5 pt-4 pb-3 border-b flex-shrink-0">
+          <p class="text-sm font-semibold text-gray-700">Realogram</p>
+          <p class="text-xs text-gray-400 mt-0.5">Shelf detection · 4 rows · 6 slots per row</p>
         </div>
-      </div>` : `
-      <div class="border-t pt-3">
-        <p class="text-xs font-semibold text-green-600">✓ No fraud flags — image is clean</p>
-      </div>`}
-      <div class="border-t pt-3">
-        <p class="text-xs font-semibold text-gray-600 mb-1">Planogram Detection</p>
-        <p class="text-xs text-gray-400">Shelf recreation · ${Math.floor(Math.random()*8+3)} products detected · avg confidence ${(Math.random()*20+78).toFixed(0)}%</p>
+        <div class="p-4 flex-1">
+          ${Pages._irRealogram(img)}
+        </div>
+      </div>`;
+    overlay.classList.remove('hidden');
+  },
+
+  _irRealogram(img) {
+    let seed = img.id.split('').reduce((a, c) => a * 31 + c.charCodeAt(0), 0);
+    const rng = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 0x100000000; };
+    const brands = [
+      { name:"Lay's",      short:'LAY', bg:'#FEF3C7', border:'#FCD34D', text:'#92400E' },
+      { name:'Doritos',    short:'DOR', bg:'#FEE2E2', border:'#FCA5A5', text:'#991B1B' },
+      { name:'Cheetos',    short:'CHE', bg:'#FFEDD5', border:'#FDBA74', text:'#9A3412' },
+      { name:'Ruffles',    short:'RUF', bg:'#F0FDF4', border:'#86EFAC', text:'#14532D' },
+      { name:'Tostitos',   short:'TOS', bg:'#EFF6FF', border:'#93C5FD', text:'#1E3A8A' },
+      { name:'Fritos',     short:'FRI', bg:'#F5F3FF', border:'#C4B5FD', text:'#4C1D95' },
+      { name:'Pringles',   short:'PRI', bg:'#FDF4FF', border:'#E879F9', text:'#701A75' },
+      { name:'Kettle',     short:'KET', bg:'#ECFDF5', border:'#6EE7B7', text:'#064E3B' },
+      { name:"Stacy's",    short:'STA', bg:'#FFF7ED', border:'#FED7AA', text:'#7C2D12' },
+      { name:'Smartfood',  short:'SMF', bg:'#F0F9FF', border:'#7DD3FC', text:'#0C4A6E' },
+      { name:'SunChips',   short:'SUN', bg:'#FEFCE8', border:'#FDE047', text:'#713F12' },
+      { name:'Popcorners', short:'POP', bg:'#FFF1F2', border:'#FDA4AF', text:'#881337' },
+    ];
+    const ROWS = 4, COLS = 6;
+    const rows = [];
+    for (let r = 0; r < ROWS; r++) {
+      const cells = [];
+      for (let c = 0; c < COLS; c++) {
+        if (rng() < 0.18) {
+          cells.push(`<div class="flex flex-col items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50" style="height:64px;min-width:0">
+            <span class="text-[10px] text-gray-300 font-mono select-none">VOID</span>
+          </div>`);
+        } else {
+          const b = brands[Math.floor(rng() * brands.length)];
+          const conf = Math.floor(rng() * 20 + 78);
+          cells.push(`<div class="flex flex-col items-center justify-between rounded border px-1 py-1.5 cursor-default select-none"
+            style="background:${b.bg};border-color:${b.border};height:64px;min-width:0"
+            title="${b.name} · ${conf}% confidence">
+            <span class="text-xs font-bold leading-none" style="color:${b.text}">${b.short}</span>
+            <span class="text-[9px] leading-tight text-center w-full truncate" style="color:${b.text};opacity:0.75">${b.name}</span>
+            <span class="text-[8px] font-mono" style="color:${b.text};opacity:0.6">${conf}%</span>
+          </div>`);
+        }
+      }
+      rows.push(`<div class="mb-2">
+        <div class="text-[10px] text-gray-400 font-mono mb-1">Row ${r+1}</div>
+        <div class="grid gap-1" style="grid-template-columns:repeat(${COLS},minmax(0,1fr))">${cells.join('')}</div>
+        <div class="mt-1.5 h-1.5 rounded bg-gray-200"></div>
+      </div>`);
+    }
+    return `<div>${rows.join('')}</div>
+    <div class="mt-3 border-t pt-3">
+      <p class="text-xs font-semibold text-gray-500 mb-2">Brand Legend</p>
+      <div class="flex flex-wrap gap-1.5">
+        ${brands.map(b => `<span class="text-xs px-2 py-0.5 rounded border font-medium" style="background:${b.bg};border-color:${b.border};color:${b.text}">${b.short} ${b.name}</span>`).join('')}
+        <span class="text-xs px-2 py-0.5 rounded border border-dashed border-gray-200 bg-gray-50 text-gray-400">VOID Empty</span>
       </div>
     </div>`;
-    // Update modal footer with a download button for this specific image
-    const footer = document.querySelector('#imgDetailModal .border-t.bg-gray-50');
-    if (footer) footer.innerHTML = `
-      <button onclick="Pages.downloadImage('${img.id}'); Utils.closeModal('imgDetailModal')"
-        class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-        </svg>
-        Download Image
-      </button>
-      <button onclick="Utils.closeModal('imgDetailModal')"
-        class="text-sm border border-gray-200 text-gray-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition">Close</button>`;
-    Utils.openModal('imgDetailModal');
   },
 
   // ─── User Management ───────────────────────────────────────────────────────

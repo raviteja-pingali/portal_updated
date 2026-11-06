@@ -150,26 +150,50 @@ const IMAGE_QUALITY = Array.from({length:25}, (_,i) => {
   };
 });
 
-// Image repository data (gallery)
-const IMAGE_GALLERY = Array.from({length:40}, (_,i) => {
-  const store      = STORES.filter(s=>s.market==='m1')[rand(0,9)];
-  const brand      = BRANDS[rand(0,4)];
-  const colors     = ['3B82F6','10B981','F59E0B','8B5CF6','EF4444','06B6D4','84CC16'];
-  const fraudTypes = randomFraudTypes();
-  return {
-    id:           `IMG-${String(i+1).padStart(4,'0')}`,
-    visit_id:     `VIS-${rand(1000,9999)}`,
-    visit_date:   `2026-05-${String(rand(8,17)).padStart(2,'0')}`,
-    store_name:   store.name,
-    retailer:     ['Walmart','Kroger','Target','Costco','Publix','H-E-B','Whole Foods','Albertsons'][rand(0,7)],
-    brand,
-    sku:          PRODUCTS[rand(0,14)].sku,
-    asset_name:   ASSETS[rand(0,5)],
-    quality_score: fraudTypes.length > 0 ? pct(35, 65) : pct(65, 99),
-    fraud_types:  fraudTypes,
-    color:        colors[rand(0,6)],
-  };
-});
+// Image repository data (gallery) — 10 explicit visits, 3-6 images each
+const IMAGE_GALLERY = (() => {
+  const usersPool  = [USERS[1].name, USERS[2].name, USERS[3].name, USERS[6].name, USERS[7].name];
+  const routesPool = ['11712_SNX', '11713_SNX', '11714_BEV', '11715_SNX'];
+  const assetTypes = ['Six Basket Wide','Seven Basket Wide','Six Baskets Narrow','Seven Baskets Narrow','Maxi Stand','Tower Stand','Fritolay Other Shelf','Cold Vault','Checkout Cooler'];
+  const colors     = ['3B82F6','10B981','F59E0B','8B5CF6','EF4444','06B6D4','84CC16','F97316'];
+  const usStores   = STORES.filter(s => s.market === 'm1');
+  const visitDefs  = [
+    { id:'VIS-2847', date:'2026-05-17', si:0, ui:0, ri:0, fence:false, ai:[0,1,2,3,7,8] },
+    { id:'VIS-2848', date:'2026-05-17', si:2, ui:1, ri:1, fence:false, ai:[0,4,5,6] },
+    { id:'VIS-2849', date:'2026-05-16', si:1, ui:2, ri:0, fence:true,  ai:[0,1,2,3] },
+    { id:'VIS-2850', date:'2026-05-16', si:3, ui:3, ri:2, fence:false, ai:[0,1,4,5] },
+    { id:'VIS-2851', date:'2026-05-15', si:4, ui:0, ri:1, fence:false, ai:[0,1,2,7] },
+    { id:'VIS-2852', date:'2026-05-15', si:0, ui:4, ri:3, fence:true,  ai:[0,3,4] },
+    { id:'VIS-2853', date:'2026-05-14', si:5, ui:1, ri:0, fence:false, ai:[0,1,2,3,6] },
+    { id:'VIS-2854', date:'2026-05-13', si:6, ui:2, ri:2, fence:false, ai:[0,1,4] },
+    { id:'VIS-2855', date:'2026-05-12', si:7, ui:3, ri:1, fence:false, ai:[0,2,3,5] },
+    { id:'VIS-2856', date:'2026-05-10', si:8, ui:0, ri:3, fence:true,  ai:[0,1,2] },
+  ];
+  const imgs = []; let counter = 1;
+  visitDefs.forEach(v => {
+    const store = usStores[v.si] || usStores[0];
+    v.ai.forEach(aIdx => {
+      const fTypes = randomFraudTypes();
+      imgs.push({
+        id:            `IMG-${String(counter++).padStart(4,'0')}`,
+        visit_id:      v.id,
+        visit_date:    v.date,
+        store_name:    store.name,
+        retailer:      store.name.split(' ')[0],
+        user_name:     usersPool[v.ui] || usersPool[0],
+        route:         routesPool[v.ri],
+        outside_fence: v.fence,
+        brand:         BRANDS[rand(0, BRANDS.length - 1)],
+        sku:           PRODUCTS[rand(0, PRODUCTS.length - 1)].sku,
+        asset_name:    assetTypes[aIdx],
+        quality_score: fTypes.length > 0 ? pct(35, 65) : pct(65, 99),
+        fraud_types:   fTypes,
+        color:         colors[rand(0, colors.length - 1)],
+      });
+    });
+  });
+  return imgs;
+})();
 
 const LOGS = [
   { id:'lg1',  type:'Excel Download', user:'Alice Morgan',  detail:'Store Report – All regions, May 2026', size:'2.1 MB', ts:'2026-05-17 09:02', status:'Complete' },
