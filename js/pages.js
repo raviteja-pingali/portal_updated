@@ -1045,21 +1045,8 @@ const Pages = {
         <button id="irTab0" onclick="Pages._irSwitchTab(0)" class="${tabCls(true)}">Image View</button>
         <button id="irTab1" onclick="Pages._irSwitchTab(1)" class="${tabCls(false)}">Visit View</button>
       </div>
-      <!-- Quality summary bar -->
-      <div class="bg-white border border-gray-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 shadow-sm">
-        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Quality</span>
-        <span class="flex items-center gap-1.5 text-xs text-gray-600"><span class="w-2 h-2 rounded-full bg-green-400"></span>${cleanG} Clean</span>
-        <span class="flex items-center gap-1.5 text-xs text-gray-600"><span class="w-2 h-2 rounded-full bg-red-400"></span>${flaggedG} Flagged</span>
-        <span class="text-gray-200">|</span>
-        ${Data.FRAUD_TYPES.map(ft => {
-          const ct = Data.IMAGE_GALLERY.filter(i => i.fraud_types.includes(ft)).length;
-          if (ct === 0) return '';
-          return `<button onclick="Pages._setGalleryFraudFilter('${ft}')"
-            class="text-xs border border-gray-200 rounded-md px-2 py-0.5 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition flex items-center gap-1">
-            <span class="font-semibold text-gray-700">${ct}</span> <span class="text-gray-500">${ft}</span>
-          </button>`;
-        }).join('')}
-      </div>
+      <!-- Quality summary / flag filter bar (rendered dynamically) -->
+      <div id="ir_quality_bar" class="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm"></div>
       <!-- Shared search & filters -->
       <div class="relative">
         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
@@ -1072,7 +1059,6 @@ const Pages = {
           class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 focus:border-blue-500 rounded-xl text-sm bg-white outline-none transition shadow-sm" />
       </div>
       <div class="flex flex-wrap gap-2 items-center">
-        <div id="ir_fraud_pills" class="flex flex-wrap gap-1.5 items-center"></div>
         <select id="ir_brand" onchange="Pages._irRefresh()"
           class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white h-9 focus:ring-2 focus:ring-blue-500 outline-none">
           <option value="">All Brands</option>
@@ -1134,20 +1120,27 @@ const Pages = {
 
   _irRenderFraudPills() {
     const f = App._irFraudFilters || (App._irFraudFilters = new Set());
-    const container = document.getElementById('ir_fraud_pills');
+    const container = document.getElementById('ir_quality_bar');
     if (!container) return;
-    const pill = (val, label, active, on, off) =>
+    const totalG   = Data.IMAGE_GALLERY.length;
+    const cleanG   = Data.IMAGE_GALLERY.filter(i => i.fraud_types.length === 0).length;
+    const flaggedG = totalG - cleanG;
+    const off = 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:bg-gray-50';
+    const pill = (val, label, active, onCls) =>
       `<button onclick="Pages._irToggleFraud('${val}')"
-        class="text-xs px-2.5 py-1 rounded-full border transition font-medium whitespace-nowrap ${active ? on : off}">
+        class="text-xs px-2.5 py-1.5 rounded-full border transition font-medium whitespace-nowrap ${active ? onCls : off}">
         ${label}
       </button>`;
-    const off = 'bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700';
-    container.innerHTML =
-      pill('', 'All', f.size === 0, 'bg-blue-600 border-blue-600 text-white', off) +
-      pill('__clean__', '✓ Clean', f.has('__clean__'), 'bg-green-600 border-green-600 text-white', off) +
-      Data.FRAUD_TYPES.map(ft =>
-        pill(ft, ft, f.has(ft), 'bg-red-500 border-red-500 text-white', off)
-      ).join('');
+    const fraudCounts = Data.FRAUD_TYPES
+      .map(ft => ({ ft, ct: Data.IMAGE_GALLERY.filter(i => i.fraud_types.includes(ft)).length }))
+      .filter(x => x.ct > 0);
+    container.innerHTML = `<div class="flex flex-wrap items-center gap-2">
+      ${pill('', 'All ' + totalG, f.size === 0, 'bg-blue-600 border-blue-600 text-white')}
+      ${pill('__clean__', '✓ ' + cleanG + ' Clean', f.has('__clean__'), 'bg-green-600 border-green-600 text-white')}
+      ${pill('__flagged__', '⚑ ' + flaggedG + ' Flagged', f.has('__flagged__'), 'bg-amber-500 border-amber-500 text-white')}
+      <span class="text-gray-200">|</span>
+      ${fraudCounts.map(({ft, ct}) => pill(ft, ct + ' ' + ft, f.has(ft), 'bg-red-500 border-red-500 text-white')).join('')}
+    </div>`;
   },
 
   _irToggleFraud(value) {
@@ -1157,8 +1150,10 @@ const Pages = {
       f.clear();
     } else if (value === '__clean__') {
       f.clear(); f.add('__clean__');
+    } else if (value === '__flagged__') {
+      f.clear(); f.add('__flagged__');
     } else {
-      f.delete('__clean__');
+      f.delete('__clean__'); f.delete('__flagged__');
       if (f.has(value)) f.delete(value); else f.add(value);
     }
     this._irRenderFraudPills();
@@ -1197,7 +1192,8 @@ const Pages = {
     const filters  = App._irFraudFilters || new Set();
     return Data.IMAGE_GALLERY.filter(i => {
       const ftMatch = filters.size === 0 ? true
-        : filters.has('__clean__') ? i.fraud_types.length === 0
+        : filters.has('__clean__')   ? i.fraud_types.length === 0
+        : filters.has('__flagged__') ? i.fraud_types.length > 0
         : [...filters].some(ft => i.fraud_types.includes(ft));
       return ftMatch &&
         (!search   || [i.retailer, i.brand, i.sku, i.asset_name, i.store_name, i.visit_id].some(v => String(v).toLowerCase().includes(search))) &&
