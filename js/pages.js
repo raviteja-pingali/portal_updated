@@ -404,8 +404,9 @@ const Pages = {
     App.navigate('image-repo');
     setTimeout(() => {
       App._irCurrentTab = 0;
-      const el = document.getElementById('ir_fraudtype');
-      if (el) { el.value = fraudType; Pages.filterGallery(); }
+      App._irFraudFilters = new Set([fraudType]);
+      Pages._irRenderFraudPills();
+      Pages.filterGallery();
     }, 100);
   },
 
@@ -1071,12 +1072,7 @@ const Pages = {
           class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 focus:border-blue-500 rounded-xl text-sm bg-white outline-none transition shadow-sm" />
       </div>
       <div class="flex flex-wrap gap-2 items-center">
-        <select id="ir_fraudtype" onchange="Pages._irRefresh()"
-          class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white h-9 focus:ring-2 focus:ring-blue-500 outline-none">
-          <option value="">All Images</option>
-          <option value="__clean__">Clean only</option>
-          ${Data.FRAUD_TYPES.map(ft => `<option value="${ft}">${ft}</option>`).join('')}
-        </select>
+        <div id="ir_fraud_pills" class="flex flex-wrap gap-1.5 items-center"></div>
         <select id="ir_brand" onchange="Pages._irRefresh()"
           class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white h-9 focus:ring-2 focus:ring-blue-500 outline-none">
           <option value="">All Brands</option>
@@ -1125,12 +1121,48 @@ const Pages = {
 
   afterImageRepository() {
     App._irCurrentTab = 0;
+    App._irFraudFilters = new Set();
+    Pages._irRenderFraudPills();
     Pages._irRefresh();
   },
 
   _setGalleryFraudFilter(fraudType) {
-    const el = document.getElementById('ir_fraudtype');
-    if (el) { el.value = fraudType; this._irRefresh(); }
+    App._irFraudFilters = new Set([fraudType]);
+    this._irRenderFraudPills();
+    this._irRefresh();
+  },
+
+  _irRenderFraudPills() {
+    const f = App._irFraudFilters || (App._irFraudFilters = new Set());
+    const container = document.getElementById('ir_fraud_pills');
+    if (!container) return;
+    const pill = (val, label, active, on, off) =>
+      `<button onclick="Pages._irToggleFraud('${val}')"
+        class="text-xs px-2.5 py-1 rounded-full border transition font-medium whitespace-nowrap ${active ? on : off}">
+        ${label}
+      </button>`;
+    const off = 'bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700';
+    container.innerHTML =
+      pill('', 'All', f.size === 0, 'bg-blue-600 border-blue-600 text-white', off) +
+      pill('__clean__', '✓ Clean', f.has('__clean__'), 'bg-green-600 border-green-600 text-white', off) +
+      Data.FRAUD_TYPES.map(ft =>
+        pill(ft, ft, f.has(ft), 'bg-red-500 border-red-500 text-white', off)
+      ).join('');
+  },
+
+  _irToggleFraud(value) {
+    if (!App._irFraudFilters) App._irFraudFilters = new Set();
+    const f = App._irFraudFilters;
+    if (value === '') {
+      f.clear();
+    } else if (value === '__clean__') {
+      f.clear(); f.add('__clean__');
+    } else {
+      f.delete('__clean__');
+      if (f.has(value)) f.delete(value); else f.add(value);
+    }
+    this._irRenderFraudPills();
+    this._irRefresh();
   },
 
   _irSwitchTab(idx) {
@@ -1145,9 +1177,11 @@ const Pages = {
 
   _irRefresh(reset = false) {
     if (reset) {
-      ['ir_search','ir_fraudtype','ir_brand','ir_retailer','ir_date_from','ir_date_to'].forEach(id => {
+      ['ir_search','ir_brand','ir_retailer','ir_date_from','ir_date_to'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
       });
+      App._irFraudFilters = new Set();
+      this._irRenderFraudPills();
     }
     const tab = App._irCurrentTab ?? 0;
     if (tab === 0) this.filterGallery();
@@ -1155,14 +1189,16 @@ const Pages = {
   },
 
   _irFilteredImgs() {
-    const search    = document.getElementById('ir_search')?.value?.toLowerCase() || '';
-    const fraudType = document.getElementById('ir_fraudtype')?.value || '';
-    const brand     = document.getElementById('ir_brand')?.value     || '';
-    const retailer  = document.getElementById('ir_retailer')?.value  || '';
-    const dateFrom  = document.getElementById('ir_date_from')?.value || '';
-    const dateTo    = document.getElementById('ir_date_to')?.value   || '';
+    const search   = document.getElementById('ir_search')?.value?.toLowerCase() || '';
+    const brand    = document.getElementById('ir_brand')?.value    || '';
+    const retailer = document.getElementById('ir_retailer')?.value || '';
+    const dateFrom = document.getElementById('ir_date_from')?.value || '';
+    const dateTo   = document.getElementById('ir_date_to')?.value   || '';
+    const filters  = App._irFraudFilters || new Set();
     return Data.IMAGE_GALLERY.filter(i => {
-      const ftMatch = !fraudType ? true : fraudType === '__clean__' ? i.fraud_types.length === 0 : i.fraud_types.includes(fraudType);
+      const ftMatch = filters.size === 0 ? true
+        : filters.has('__clean__') ? i.fraud_types.length === 0
+        : [...filters].some(ft => i.fraud_types.includes(ft));
       return ftMatch &&
         (!search   || [i.retailer, i.brand, i.sku, i.asset_name, i.store_name, i.visit_id].some(v => String(v).toLowerCase().includes(search))) &&
         (!brand    || i.brand    === brand)    &&
@@ -1178,9 +1214,11 @@ const Pages = {
 
   filterGallery(reset = false) {
     if (reset) {
-      ['ir_search','ir_fraudtype','ir_brand','ir_retailer','ir_date_from','ir_date_to'].forEach(id => {
+      ['ir_search','ir_brand','ir_retailer','ir_date_from','ir_date_to'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
       });
+      App._irFraudFilters = new Set();
+      this._irRenderFraudPills();
     }
     const imgs = this._irFilteredImgs();
     const countEl = document.getElementById('ir_count');
