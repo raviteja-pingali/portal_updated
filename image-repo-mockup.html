@@ -27,7 +27,7 @@
       <span class="bg-amber-100 border border-amber-300 text-amber-800 text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">Design Mockup</span>
       <span class="text-sm text-gray-500">Field Activity — Proposed UX</span>
     </div>
-    <span class="text-xs text-gray-400 italic">Switch tabs to explore · filters carry across</span>
+    <span class="text-xs text-gray-400 italic">Filters carry across both modes</span>
   </div>
 
   <!-- App shell -->
@@ -36,11 +36,7 @@
     <!-- Header + shared filters + toggle -->
     <div class="bg-white px-6 pt-5 pb-4 border-b border-gray-100">
       <div class="flex items-center justify-between mb-4">
-        <!-- ⚠ Open question: rename "Image Repository" → "Field Activity"? -->
-        <div>
-          <h1 class="text-xl font-bold text-gray-800">Field Activity</h1>
-          <p class="text-[10px] text-amber-600 mt-0.5">⚠ Portal currently calls this "Image Repository" — confirm rename?</p>
-        </div>
+        <h1 class="text-xl font-bold text-gray-800">Field Activity</h1>
         <span id="hdr_count" class="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-medium"></span>
       </div>
 
@@ -57,7 +53,6 @@
           <input id="date_to" type="date" value="2026-05-17" onchange="render(null)"
             class="border border-gray-300 rounded-lg px-2 py-1 h-8 bg-white outline-none focus:ring-1 focus:ring-blue-400">
         </div>
-        <span class="text-[10px] border border-dashed border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 rounded">shared across both modes</span>
       </div>
 
       <!-- Toggle (segmented control) -->
@@ -68,8 +63,6 @@
           <button id="toggle_images" onclick="switchTab('images')"
             class="px-5 py-1.5 rounded-lg text-sm font-medium transition-all">Images</button>
         </div>
-        <!-- ⚠ Open question: Visits or Images as default? -->
-        <span class="text-[10px] text-amber-600">⚠ Portal defaults to Images — switch to Visits as default?</span>
       </div>
     </div>
 
@@ -101,16 +94,6 @@
     </div>
   </div>
 
-  <!-- Open questions -->
-  <div class="max-w-4xl mx-auto mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
-    <p class="text-xs font-bold text-amber-800 mb-2 uppercase tracking-wide">⚠ Open questions from portal context</p>
-    <ul class="text-xs text-amber-700 space-y-1.5">
-      <li>1. <strong>Page rename:</strong> Portal currently calls this "Image Repository" — rename to "Field Activity" or keep?</li>
-      <li>2. <strong>Default mode:</strong> Portal defaults to Images — should Visits be the default instead?</li>
-      <li>3. <strong>Search bar:</strong> Portal has a prominent shared search bar — new design moves it to Images-only. OK?</li>
-      <li>4. <strong>Brand filter:</strong> Portal has Brand as a shared filter — new design moves it to Images-only. OK?</li>
-    </ul>
-  </div>
 
   <script>
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -238,7 +221,6 @@
         ${pill('__flagged__', `⚑ ${flaggedImgs} Flagged`, fraudFilters.has('__flagged__'), 'bg-amber-500 border-amber-500 text-white')}
         ${ftCounts.length ? '<span class="text-gray-200">|</span>' : ''}
         ${ftCounts.map(({ft,ct})=>pill(ft, `${ct} ${ft}`, fraudFilters.has(ft), 'bg-red-500 border-red-500 text-white')).join('')}
-        <span class="text-[10px] border border-dashed border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 rounded">shared · ${tab==='visits'?'filters visits with ≥1 matching image':'filters individual images'}</span>
       </div>`;
   }
 
@@ -282,13 +264,6 @@
     const groups = [...dateMap.entries()].sort((a,b)=>b[0].localeCompare(a[0]));
 
     return `
-      <div class="note rounded-xl px-4 py-3 text-xs flex gap-2.5">
-        <span class="text-base mt-0.5">💡</span>
-        <div>Showing <strong>${visits.length} visit${visits.length!==1?'s':''}</strong>
-        ${fraudFilters.size>0 ? '— filtered to visits containing at least one matching image' : '— all visits in period'}.
-        Use the filters below to narrow by store, route, or rep.</div>
-      </div>
-
       <!-- Visit-specific filters -->
       <div class="flex flex-wrap gap-2 items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
         <select class="border border-gray-300 rounded-lg px-2.5 py-1 h-8 bg-white outline-none text-xs">
@@ -303,7 +278,6 @@
           <option>All Reps</option>
           ${[...new Set(VISITS.map(v=>v.user))].map(u=>`<option>${u}</option>`).join('')}
         </select>
-        <span class="text-[10px] text-gray-400 italic ml-1">Visit-only filters</span>
       </div>
 
       ${groups.length === 0
@@ -379,13 +353,6 @@
     });
 
     return `
-      <div class="note rounded-xl px-4 py-3 text-xs flex gap-2.5">
-        <span class="text-base mt-0.5">💡</span>
-        <div>Showing <strong>${imgs.length} image${imgs.length!==1?'s':''}</strong>
-        ${fraudFilters.size > 0 ? '— only images matching the selected flags' : '— all images in period'}.
-        Use the filters below to narrow by retailer, asset type, or keyword.</div>
-      </div>
-
       <!-- Image-specific filters -->
       <div class="flex flex-wrap gap-2 items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
         <div class="relative flex-1 min-w-44">
@@ -405,7 +372,6 @@
           <option>All Assets</option>
           ${[...new Set(ALL_IMGS.map(i=>i.asset))].map(a=>`<option>${a}</option>`).join('')}
         </select>
-        <span class="text-[10px] text-gray-400 italic ml-1">Images-only filters</span>
       </div>
 
       ${imgs.length
