@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Field Activity — Design Mockup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .slide-fwd  { animation: slideFwd  0.22s cubic-bezier(.4,0,.2,1) forwards; }
+    .slide-back { animation: slideBack 0.22s cubic-bezier(.4,0,.2,1) forwards; }
+    @keyframes slideFwd  { from { opacity:0; transform:translateX(20px);  } to { opacity:1; transform:translateX(0); } }
+    @keyframes slideBack { from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:translateX(0); } }
+    .thumb { transition: transform .14s, box-shadow .14s; flex-shrink:0; cursor:pointer; }
+    .thumb:hover { transform:scale(1.07); box-shadow:0 6px 16px rgba(0,0,0,.18); position:relative; z-index:5; }
+    .visit-card { transition: border-color .15s, box-shadow .15s; }
+    .visit-card:hover { border-color:#93C5FD; box-shadow:0 2px 14px rgba(59,130,246,.12); }
+    .pill { transition: all .12s; cursor:pointer; }
+    .note { background:#FFFBEB; border:1.5px dashed #FCD34D; color:#92400E; }
+    select, input[type=date], input[type=text] { font-size:12px; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen p-6">
+
+  <!-- Mockup label -->
+  <div class="max-w-4xl mx-auto mb-5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="bg-amber-100 border border-amber-300 text-amber-800 text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">Design Mockup</span>
+      <span class="text-sm text-gray-500">Field Activity — Proposed UX</span>
+    </div>
+    <span class="text-xs text-gray-400 italic">Switch tabs to explore · filters carry across</span>
+  </div>
+
+  <!-- App shell -->
+  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+
+    <!-- Header + tabs -->
+    <div class="bg-white px-6 pt-5 pb-0 border-b border-gray-100">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-bold text-gray-800">Field Activity</h1>
+        <span id="hdr_count" class="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-medium"></span>
+      </div>
+
+      <!-- Shared: quality / fraud pills -->
+      <div id="sharedPills" class="mb-4"></div>
+
+      <!-- Shared: date range -->
+      <div class="flex flex-wrap gap-2 items-center mb-4">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-gray-500 font-medium">Date</span>
+          <input id="date_from" type="date" value="2026-05-15" onchange="render(null)"
+            class="border border-gray-300 rounded-lg px-2 py-1 h-8 bg-white outline-none focus:ring-1 focus:ring-blue-400">
+          <span class="text-xs text-gray-400">–</span>
+          <input id="date_to" type="date" value="2026-05-17" onchange="render(null)"
+            class="border border-gray-300 rounded-lg px-2 py-1 h-8 bg-white outline-none focus:ring-1 focus:ring-blue-400">
+        </div>
+        <span class="text-xs text-gray-300 border border-dashed border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-[10px]">shared across both tabs</span>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="flex gap-0">
+        <button id="tabBtn_visits" onclick="switchTab('visits')"
+          class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors">Visits</button>
+        <button id="tabBtn_images" onclick="switchTab('images')"
+          class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors">Images</button>
+      </div>
+    </div>
+
+    <!-- Dynamic content -->
+    <div id="mainContent" class="p-5 space-y-4 min-h-96"></div>
+  </div>
+
+  <!-- Design notes -->
+  <div class="max-w-4xl mx-auto mt-5 grid grid-cols-2 gap-4">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <p class="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Visits tab</p>
+      <ul class="text-xs text-gray-500 space-y-1.5">
+        <li>• Unit of data: the <strong>visit</strong></li>
+        <li>• Fraud filter = "visit has ≥1 image with this flag"</li>
+        <li>• Extra filters: Store, Route, Rep</li>
+        <li>• Backend: <code class="bg-gray-100 px-1 rounded">GET /visits?has_flag=bad_angle&date=...</code></li>
+        <li>• Returns full visits with all their images</li>
+      </ul>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <p class="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Images tab</p>
+      <ul class="text-xs text-gray-500 space-y-1.5">
+        <li>• Unit of data: the <strong>image</strong></li>
+        <li>• Fraud filter = "image has this exact flag"</li>
+        <li>• Extra filters: Search, Asset type, Retailer</li>
+        <li>• Backend: <code class="bg-gray-100 px-1 rounded">GET /images?flag=bad_angle&date=...</code></li>
+        <li>• Returns only matching images, no extras</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const VISITS = [
+    {
+      id:'VIS-2847', date:'2026-05-17', store:'Walmart Supercenter', retailer:'Walmart',
+      route:'11712_SNX', user:'James Mitchell', color:'3B82F6',
+      avgQ:84, flagged:0,
+      images:[
+        {id:'IMG-001', asset:'Six Basket Wide',    q:88, flags:[]},
+        {id:'IMG-002', asset:'Seven Basket Wide',  q:82, flags:[]},
+        {id:'IMG-003', asset:'Six Baskets Narrow', q:79, flags:[]},
+        {id:'IMG-004', asset:'Maxi Stand',         q:91, flags:[]},
+        {id:'IMG-005', asset:'Tower Stand',        q:85, flags:[]},
+        {id:'IMG-006', asset:'Cold Vault',         q:83, flags:[]},
+      ]
+    },
+    {
+      id:'VIS-2848', date:'2026-05-17', store:'Kroger #1234', retailer:'Kroger',
+      route:'11713_SNX', user:'Sarah Chen', color:'F59E0B',
+      avgQ:56, flagged:2,
+      images:[
+        {id:'IMG-007', asset:'Six Basket Wide',   q:61, flags:['Bad Angle']},
+        {id:'IMG-008', asset:'Seven Basket Wide', q:44, flags:['Glare','Bad Angle']},
+        {id:'IMG-009', asset:'Maxi Stand',        q:72, flags:[]},
+        {id:'IMG-010', asset:'Cold Vault',        q:68, flags:[]},
+      ]
+    },
+    {
+      id:'VIS-2849', date:'2026-05-16', store:'Target T-0892', retailer:'Target',
+      route:'11714_BEV', user:'Mike Torres', color:'8B5CF6',
+      avgQ:73, flagged:1,
+      images:[
+        {id:'IMG-011', asset:'Six Basket Wide',   q:65, flags:['Blur']},
+        {id:'IMG-012', asset:'Seven Basket Wide', q:78, flags:[]},
+        {id:'IMG-013', asset:'Maxi Stand',        q:76, flags:[]},
+        {id:'IMG-014', asset:'Cold Vault',        q:81, flags:[]},
+      ]
+    },
+    {
+      id:'VIS-2850', date:'2026-05-16', store:'Publix #0421', retailer:'Publix',
+      route:'11712_SNX', user:'James Mitchell', color:'10B981',
+      avgQ:91, flagged:0,
+      images:[
+        {id:'IMG-015', asset:'Six Basket Wide',   q:93, flags:[]},
+        {id:'IMG-016', asset:'Seven Basket Wide', q:89, flags:[]},
+        {id:'IMG-017', asset:'Maxi Stand',        q:92, flags:[]},
+        {id:'IMG-018', asset:'Cold Vault',        q:90, flags:[]},
+      ]
+    },
+  ];
+
+  const ALL_IMGS  = VISITS.flatMap(v => v.images.map(i => ({ ...i, visitId:v.id, store:v.store, date:v.date, color:v.color })));
+  const FRAUD_TYPES = ['Bad Angle', 'Glare', 'Blur'];
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let tab          = 'visits';
+  let fraudFilters = new Set(); // shared across both tabs
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const qBar  = q => q >= 80 ? 'bg-green-500'  : q >= 60 ? 'bg-amber-400'  : 'bg-red-400';
+  const qText = q => q >= 80 ? 'text-green-600' : q >= 60 ? 'text-amber-600' : 'text-red-600';
+
+  function shelf(color, rowH='h-5', rows=3, cols=5) {
+    const ops = ['40','2e','55','22','44','33'];
+    let h = `<div class="w-full px-1.5 space-y-0.5 opacity-70 absolute inset-0 flex flex-col justify-center">`;
+    for (let r=0;r<rows;r++) {
+      h += `<div class="flex gap-0.5">`;
+      for (let c=0;c<cols;c++)
+        h += `<div class="${rowH} flex-1 rounded-sm" style="background:#${color}${ops[c%ops.length]}"></div>`;
+      h += `</div><div class="h-px mx-1 opacity-30" style="background:#${color}"></div>`;
+    }
+    return h + '</div>';
+  }
+
+  function fmtDate(d) {
+    return new Date(d+'T00:00:00').toLocaleDateString('en-US',
+      {weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  }
+
+  function dateFrom() { return document.getElementById('date_from')?.value || ''; }
+  function dateTo()   { return document.getElementById('date_to')?.value   || ''; }
+
+  // ── Tab switch ────────────────────────────────────────────────────────────
+  function switchTab(t) {
+    const prev = tab;
+    tab = t;
+    ['visits','images'].forEach(x => {
+      document.getElementById(`tabBtn_${x}`).className =
+        `px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab===x
+          ? 'border-blue-600 text-blue-600'
+          : 'border-transparent text-gray-500 hover:text-gray-700'}`;
+    });
+    render(prev === tab ? null : (t === 'images' ? 'fwd' : 'back'));
+  }
+
+  function toggleFraud(val) {
+    if (val === '')              { fraudFilters.clear(); }
+    else if (val==='__clean__')  { fraudFilters.clear(); fraudFilters.add('__clean__'); }
+    else if (val==='__flagged__'){ fraudFilters.clear(); fraudFilters.add('__flagged__'); }
+    else {
+      fraudFilters.delete('__clean__'); fraudFilters.delete('__flagged__');
+      fraudFilters.has(val) ? fraudFilters.delete(val) : fraudFilters.add(val);
+    }
+    render(null);
+  }
+
+  // ── Shared pills ──────────────────────────────────────────────────────────
+  function renderPills() {
+    const totalImgs  = ALL_IMGS.length;
+    const cleanImgs  = ALL_IMGS.filter(i=>i.flags.length===0).length;
+    const flaggedImgs = totalImgs - cleanImgs;
+    const ftCounts   = FRAUD_TYPES.map(ft=>({ft, ct:ALL_IMGS.filter(i=>i.flags.includes(ft)).length})).filter(x=>x.ct>0);
+
+    const off = 'pill text-xs px-2.5 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 font-medium';
+    const on  = cls => `pill text-xs px-2.5 py-1.5 rounded-full border font-medium ${cls}`;
+
+    const pill = (val, label, active, onCls) =>
+      `<button onclick="toggleFraud('${val}')" class="${active ? on(onCls) : off}">${label}</button>`;
+
+    document.getElementById('sharedPills').innerHTML = `
+      <div class="flex flex-wrap items-center gap-2">
+        ${pill('', `All ${totalImgs}`, fraudFilters.size===0, 'bg-blue-600 border-blue-600 text-white')}
+        ${pill('__clean__', `✓ ${cleanImgs} Clean`, fraudFilters.has('__clean__'), 'bg-green-600 border-green-600 text-white')}
+        ${pill('__flagged__', `⚑ ${flaggedImgs} Flagged`, fraudFilters.has('__flagged__'), 'bg-amber-500 border-amber-500 text-white')}
+        ${ftCounts.length ? '<span class="text-gray-200">|</span>' : ''}
+        ${ftCounts.map(({ft,ct})=>pill(ft, `${ct} ${ft}`, fraudFilters.has(ft), 'bg-red-500 border-red-500 text-white')).join('')}
+        <span class="text-[10px] border border-dashed border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 rounded">shared · ${tab==='visits'?'filters visits with ≥1 matching image':'filters individual images'}</span>
+      </div>`;
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  function render(dir) {
+    renderPills();
+    const totalImgs  = ALL_IMGS.length;
+    const totalVisits = VISITS.length;
+    document.getElementById('hdr_count').textContent =
+      tab === 'visits'
+        ? `${totalVisits} visits · ${totalImgs} images`
+        : `${totalImgs} images · ${totalVisits} visits`;
+
+    const mc = document.getElementById('mainContent');
+    const wrap = document.createElement('div');
+    wrap.className = `space-y-4${dir==='fwd' ? ' slide-fwd' : dir==='back' ? ' slide-back' : ''}`;
+    wrap.innerHTML = tab === 'visits' ? renderVisits() : renderImages();
+    mc.innerHTML = '';
+    mc.appendChild(wrap);
+  }
+
+  // ── Visits tab ────────────────────────────────────────────────────────────
+  function renderVisits() {
+    // Filter visits
+    const df = dateFrom(), dt = dateTo();
+    let visits = VISITS.filter(v => {
+      if (df && v.date < df) return false;
+      if (dt && v.date > dt) return false;
+      if (fraudFilters.size === 0) return true;
+      if (fraudFilters.has('__clean__'))   return v.flagged === 0;
+      if (fraudFilters.has('__flagged__')) return v.flagged > 0;
+      return [...fraudFilters].some(ft => v.images.some(img => img.flags.includes(ft)));
+    });
+
+    // Group by date
+    const dateMap = new Map();
+    visits.forEach(v => {
+      if (!dateMap.has(v.date)) dateMap.set(v.date,[]);
+      dateMap.get(v.date).push(v);
+    });
+    const groups = [...dateMap.entries()].sort((a,b)=>b[0].localeCompare(a[0]));
+
+    return `
+      <div class="note rounded-xl px-4 py-3 text-xs flex gap-2.5">
+        <span class="text-base mt-0.5">💡</span>
+        <div>Showing <strong>${visits.length} visit${visits.length!==1?'s':''}</strong>
+        ${fraudFilters.size>0 ? '— filtered to visits containing at least one matching image' : '— all visits in period'}.
+        Use the filters below to narrow by store, route, or rep.</div>
+      </div>
+
+      <!-- Visit-specific filters -->
+      <div class="flex flex-wrap gap-2 items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+        <select class="border border-gray-300 rounded-lg px-2.5 py-1 h-8 bg-white outline-none text-xs">
+          <option>All Stores</option>
+          ${[...new Set(VISITS.map(v=>v.store))].map(s=>`<option>${s}</option>`).join('')}
+        </select>
+        <select class="border border-gray-300 rounded-lg px-2.5 py-1 h-8 bg-white outline-none text-xs">
+          <option>All Routes</option>
+          ${[...new Set(VISITS.map(v=>v.route))].map(r=>`<option>${r}</option>`).join('')}
+        </select>
+        <select class="border border-gray-300 rounded-lg px-2.5 py-1 h-8 bg-white outline-none text-xs">
+          <option>All Reps</option>
+          ${[...new Set(VISITS.map(v=>v.user))].map(u=>`<option>${u}</option>`).join('')}
+        </select>
+        <span class="text-[10px] text-gray-400 italic ml-1">Visit-only filters</span>
+      </div>
+
+      ${groups.length === 0
+        ? `<p class="text-center text-gray-400 py-14 text-sm">No visits match the selected filters.</p>`
+        : groups.map(([date,vs]) => `
+          <div>
+            <div class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
+              <span class="text-xs font-bold text-gray-700 uppercase tracking-wide">${fmtDate(date)}</span>
+              <span class="text-xs text-gray-400">${vs.length} visit${vs.length!==1?'s':''}</span>
+            </div>
+            <div class="space-y-3">${vs.map(v=>visitCard(v)).join('')}</div>
+          </div>`).join('')}`;
+  }
+
+  function visitCard(v) {
+    const activeFt = [...fraudFilters].filter(f => f !== '__clean__' && f !== '__flagged__');
+    return `
+      <div class="visit-card border border-gray-200 rounded-xl p-4 bg-white">
+        <div class="flex items-start justify-between mb-2.5">
+          <div>
+            <span class="text-sm font-mono font-bold text-blue-600">${v.id}</span>
+            <p class="text-sm font-semibold text-gray-800 mt-0.5">${v.store}</p>
+            <p class="text-xs text-gray-400 mt-0.5">By ${v.user} · ${v.route}</p>
+          </div>
+          <div class="text-right flex-shrink-0 ml-4">
+            <span class="text-lg font-bold ${qText(v.avgQ)}">${v.avgQ}%</span>
+            <p class="text-[10px] text-gray-400">avg quality</p>
+            ${v.flagged > 0
+              ? `<p class="text-xs text-red-500 font-medium mt-0.5">⚑ ${v.flagged} flagged</p>`
+              : `<p class="text-xs text-green-600 font-medium mt-0.5">✓ All clean</p>`}
+          </div>
+        </div>
+
+        <div class="h-1 bg-gray-100 rounded-full overflow-hidden mb-3">
+          <div class="${qBar(v.avgQ)} h-1 rounded-full" style="width:${v.avgQ}%"></div>
+        </div>
+
+        <!-- Thumbnails — highlight matching images when a flag filter is active -->
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          ${v.images.map(img => {
+            const matches = fraudFilters.size === 0 || activeFt.some(ft => img.flags.includes(ft))
+              || (fraudFilters.has('__flagged__') && img.flags.length > 0)
+              || (fraudFilters.has('__clean__')   && img.flags.length === 0);
+            return `
+            <div class="thumb rounded-lg overflow-hidden border ${matches && fraudFilters.size > 0 ? 'border-blue-400 ring-1 ring-blue-300' : 'border-gray-200'}"
+              style="width:80px;height:62px;background:linear-gradient(135deg,#${v.color}22,#${v.color}09);position:relative;
+                     ${!matches && fraudFilters.size > 0 ? 'opacity:0.35;' : ''}">
+              ${shelf(v.color,'h-3',3,4)}
+              <div class="absolute top-1 right-1 w-2 h-2 rounded-full ${qBar(img.q)}"></div>
+              ${img.flags.length > 0 ? `<div class="absolute top-1 left-1 w-2 h-2 rounded-full bg-red-500"></div>` : ''}
+              <div class="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-[7px] px-1 py-0.5 truncate leading-tight">${img.asset}</div>
+            </div>`;
+          }).join('')}
+        </div>
+
+        <div class="flex gap-1.5 mt-2.5">
+          <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">${v.images.length} captures</span>
+          <span class="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">${v.route}</span>
+        </div>
+      </div>`;
+  }
+
+  // ── Images tab ────────────────────────────────────────────────────────────
+  function renderImages() {
+    const df = dateFrom(), dt = dateTo();
+    let imgs = ALL_IMGS.filter(i => {
+      if (df && i.date < df) return false;
+      if (dt && i.date > dt) return false;
+      if (fraudFilters.size === 0) return true;
+      if (fraudFilters.has('__clean__'))   return i.flags.length === 0;
+      if (fraudFilters.has('__flagged__')) return i.flags.length > 0;
+      return [...fraudFilters].some(ft => i.flags.includes(ft));
+    });
+
+    return `
+      <div class="note rounded-xl px-4 py-3 text-xs flex gap-2.5">
+        <span class="text-base mt-0.5">💡</span>
+        <div>Showing <strong>${imgs.length} image${imgs.length!==1?'s':''}</strong>
+        ${fraudFilters.size > 0 ? '— only images matching the selected flags' : '— all images in period'}.
+        Use the filters below to narrow by retailer, asset type, or keyword.</div>
+      </div>
+
+      <!-- Image-specific filters -->
+      <div class="flex flex-wrap gap-2 items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+        <div class="relative flex-1 min-w-44">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+            </svg>
+          </span>
+          <input type="text" placeholder="Search store, asset, SKU…"
+            class="w-full pl-8 pr-3 py-1 border border-gray-300 rounded-lg bg-white h-8 outline-none focus:ring-1 focus:ring-blue-400 text-xs">
+        </div>
+        <select class="border border-gray-300 rounded-lg px-2.5 py-1 h-8 bg-white outline-none text-xs">
+          <option>All Retailers</option>
+          ${[...new Set(VISITS.map(v=>v.retailer))].map(r=>`<option>${r}</option>`).join('')}
+        </select>
+        <select class="border border-gray-300 rounded-lg px-2.5 py-1 h-8 bg-white outline-none text-xs">
+          <option>All Assets</option>
+          ${[...new Set(ALL_IMGS.map(i=>i.asset))].map(a=>`<option>${a}</option>`).join('')}
+        </select>
+        <span class="text-[10px] text-gray-400 italic ml-1">Images-only filters</span>
+      </div>
+
+      ${imgs.length
+        ? `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">${imgs.map(img=>imgCard(img)).join('')}</div>`
+        : `<p class="text-center text-gray-400 py-14 text-sm">No images match the selected filters.</p>`}`;
+  }
+
+  function imgCard(img) {
+    return `
+      <div class="bg-white rounded-xl overflow-hidden border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group">
+        <div class="relative h-32 overflow-hidden" style="background:linear-gradient(135deg,#${img.color}22,#${img.color}09)">
+          ${shelf(img.color,'h-5',4,5)}
+          <div class="absolute top-1.5 left-1.5 bg-white/90 backdrop-blur rounded px-1.5 py-0.5 text-[9px] font-mono text-gray-500">${img.id}</div>
+          <div class="absolute top-1.5 right-1.5 flex items-center gap-1 bg-white/90 backdrop-blur rounded px-1.5 py-0.5">
+            <div class="w-1.5 h-1.5 rounded-full ${qBar(img.q)}"></div>
+            <span class="text-[9px] font-bold ${qText(img.q)}">${img.q}</span>
+          </div>
+        </div>
+        <div class="p-2.5">
+          <p class="text-[10px] font-mono text-blue-600 mb-0.5">${img.visitId}</p>
+          <p class="text-xs font-semibold text-gray-800 truncate group-hover:text-blue-700 transition-colors">${img.store}</p>
+          <p class="text-[10px] text-gray-500 truncate">${img.asset}</p>
+          <div class="mt-1.5 h-1 bg-gray-100 rounded-full overflow-hidden">
+            <div class="${qBar(img.q)} h-1 rounded-full" style="width:${img.q}%"></div>
+          </div>
+          ${img.flags.length > 0
+            ? `<div class="mt-1.5 flex flex-wrap gap-0.5">${img.flags.map(f=>`<span class="text-[9px] bg-red-50 text-red-600 border border-red-100 px-1 py-0.5 rounded">${f}</span>`).join('')}</div>`
+            : `<p class="mt-1 text-[9px] text-green-600">✓ Clean</p>`}
+        </div>
+      </div>`;
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  switchTab('visits');
+  </script>
+</body>
+</html>
