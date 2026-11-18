@@ -40,11 +40,21 @@
         <span id="hdr_count" class="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-medium"></span>
       </div>
 
+      <!-- Toggle (segmented control) — above all filters -->
+      <div class="mb-4">
+        <div class="inline-flex bg-gray-100 rounded-xl p-1 gap-0.5" id="modeToggle">
+          <button id="toggle_visits" onclick="switchTab('visits')"
+            class="px-5 py-1.5 rounded-lg text-sm font-medium transition-all">Visits</button>
+          <button id="toggle_images" onclick="switchTab('images')"
+            class="px-5 py-1.5 rounded-lg text-sm font-medium transition-all">Images</button>
+        </div>
+      </div>
+
       <!-- Shared: quality / fraud pills -->
       <div id="sharedPills" class="mb-3"></div>
 
       <!-- Shared: date range -->
-      <div class="flex flex-wrap gap-2 items-center mb-4">
+      <div class="flex flex-wrap gap-2 items-center mb-1">
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-gray-500 font-medium">Date</span>
           <input id="date_from" type="date" value="2026-05-15" onchange="render(null)"
@@ -52,16 +62,6 @@
           <span class="text-xs text-gray-400">–</span>
           <input id="date_to" type="date" value="2026-05-17" onchange="render(null)"
             class="border border-gray-300 rounded-lg px-2 py-1 h-8 bg-white outline-none focus:ring-1 focus:ring-blue-400">
-        </div>
-      </div>
-
-      <!-- Toggle (segmented control) -->
-      <div class="flex items-center gap-3">
-        <div class="inline-flex bg-gray-100 rounded-xl p-1 gap-0.5" id="modeToggle">
-          <button id="toggle_visits" onclick="switchTab('visits')"
-            class="px-5 py-1.5 rounded-lg text-sm font-medium transition-all">Visits</button>
-          <button id="toggle_images" onclick="switchTab('images')"
-            class="px-5 py-1.5 rounded-lg text-sm font-medium transition-all">Images</button>
         </div>
       </div>
     </div>
