@@ -33,15 +33,19 @@
   <!-- App shell -->
   <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
 
-    <!-- Header + tabs -->
-    <div class="bg-white px-6 pt-5 pb-0 border-b border-gray-100">
+    <!-- Header + shared filters + toggle -->
+    <div class="bg-white px-6 pt-5 pb-4 border-b border-gray-100">
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-xl font-bold text-gray-800">Field Activity</h1>
+        <!-- ⚠ Open question: rename "Image Repository" → "Field Activity"? -->
+        <div>
+          <h1 class="text-xl font-bold text-gray-800">Field Activity</h1>
+          <p class="text-[10px] text-amber-600 mt-0.5">⚠ Portal currently calls this "Image Repository" — confirm rename?</p>
+        </div>
         <span id="hdr_count" class="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-medium"></span>
       </div>
 
       <!-- Shared: quality / fraud pills -->
-      <div id="sharedPills" class="mb-4"></div>
+      <div id="sharedPills" class="mb-3"></div>
 
       <!-- Shared: date range -->
       <div class="flex flex-wrap gap-2 items-center mb-4">
@@ -53,15 +57,19 @@
           <input id="date_to" type="date" value="2026-05-17" onchange="render(null)"
             class="border border-gray-300 rounded-lg px-2 py-1 h-8 bg-white outline-none focus:ring-1 focus:ring-blue-400">
         </div>
-        <span class="text-xs text-gray-300 border border-dashed border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-[10px]">shared across both tabs</span>
+        <span class="text-[10px] border border-dashed border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 rounded">shared across both modes</span>
       </div>
 
-      <!-- Tab bar -->
-      <div class="flex gap-0">
-        <button id="tabBtn_visits" onclick="switchTab('visits')"
-          class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors">Visits</button>
-        <button id="tabBtn_images" onclick="switchTab('images')"
-          class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors">Images</button>
+      <!-- Toggle (segmented control) -->
+      <div class="flex items-center gap-3">
+        <div class="inline-flex bg-gray-100 rounded-xl p-1 gap-0.5" id="modeToggle">
+          <button id="toggle_visits" onclick="switchTab('visits')"
+            class="px-5 py-1.5 rounded-lg text-sm font-medium transition-all">Visits</button>
+          <button id="toggle_images" onclick="switchTab('images')"
+            class="px-5 py-1.5 rounded-lg text-sm font-medium transition-all">Images</button>
+        </div>
+        <!-- ⚠ Open question: Visits or Images as default? -->
+        <span class="text-[10px] text-amber-600">⚠ Portal defaults to Images — switch to Visits as default?</span>
       </div>
     </div>
 
@@ -72,25 +80,36 @@
   <!-- Design notes -->
   <div class="max-w-4xl mx-auto mt-5 grid grid-cols-2 gap-4">
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-      <p class="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Visits tab</p>
+      <p class="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Visits mode</p>
       <ul class="text-xs text-gray-500 space-y-1.5">
         <li>• Unit of data: the <strong>visit</strong></li>
         <li>• Fraud filter = "visit has ≥1 image with this flag"</li>
-        <li>• Extra filters: Store, Route, Rep</li>
+        <li>• Mode filters: Store, Route, Rep</li>
         <li>• Backend: <code class="bg-gray-100 px-1 rounded">GET /visits?has_flag=bad_angle&date=...</code></li>
         <li>• Returns full visits with all their images</li>
       </ul>
     </div>
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-      <p class="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Images tab</p>
+      <p class="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Images mode</p>
       <ul class="text-xs text-gray-500 space-y-1.5">
         <li>• Unit of data: the <strong>image</strong></li>
         <li>• Fraud filter = "image has this exact flag"</li>
-        <li>• Extra filters: Search, Asset type, Retailer</li>
+        <li>• Mode filters: Search, Asset type, Retailer</li>
         <li>• Backend: <code class="bg-gray-100 px-1 rounded">GET /images?flag=bad_angle&date=...</code></li>
         <li>• Returns only matching images, no extras</li>
       </ul>
     </div>
+  </div>
+
+  <!-- Open questions -->
+  <div class="max-w-4xl mx-auto mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+    <p class="text-xs font-bold text-amber-800 mb-2 uppercase tracking-wide">⚠ Open questions from portal context</p>
+    <ul class="text-xs text-amber-700 space-y-1.5">
+      <li>1. <strong>Page rename:</strong> Portal currently calls this "Image Repository" — rename to "Field Activity" or keep?</li>
+      <li>2. <strong>Default mode:</strong> Portal defaults to Images — should Visits be the default instead?</li>
+      <li>3. <strong>Search bar:</strong> Portal has a prominent shared search bar — new design moves it to Images-only. OK?</li>
+      <li>4. <strong>Brand filter:</strong> Portal has Brand as a shared filter — new design moves it to Images-only. OK?</li>
+    </ul>
   </div>
 
   <script>
@@ -180,10 +199,10 @@
     const prev = tab;
     tab = t;
     ['visits','images'].forEach(x => {
-      document.getElementById(`tabBtn_${x}`).className =
-        `px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab===x
-          ? 'border-blue-600 text-blue-600'
-          : 'border-transparent text-gray-500 hover:text-gray-700'}`;
+      document.getElementById(`toggle_${x}`).className =
+        `px-5 py-1.5 rounded-lg text-sm font-medium transition-all ${tab===x
+          ? 'bg-white text-gray-800 shadow-sm font-semibold'
+          : 'text-gray-500 hover:text-gray-700'}`;
     });
     render(prev === tab ? null : (t === 'images' ? 'fwd' : 'back'));
   }
