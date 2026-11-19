@@ -322,7 +322,7 @@
               || (fraudFilters.has('__flagged__') && img.flags.length > 0)
               || (fraudFilters.has('__clean__')   && img.flags.length === 0);
             return `
-            <div class="thumb rounded-lg overflow-hidden border ${matches && fraudFilters.size > 0 ? 'border-blue-400 ring-1 ring-blue-300' : 'border-gray-200'}"
+            <div onclick="showDetail('${img.id}')" class="thumb rounded-lg overflow-hidden border ${matches && fraudFilters.size > 0 ? 'border-blue-400 ring-1 ring-blue-300' : 'border-gray-200'}"
               style="width:80px;height:62px;background:linear-gradient(135deg,#${v.color}22,#${v.color}09);position:relative;
                      ${!matches && fraudFilters.size > 0 ? 'opacity:0.35;' : ''}">
               ${shelf(v.color,'h-3',3,4)}
@@ -381,7 +381,7 @@
 
   function imgCard(img) {
     return `
-      <div class="bg-white rounded-xl overflow-hidden border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group">
+      <div onclick="showDetail('${img.id}')" class="bg-white rounded-xl overflow-hidden border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group">
         <div class="relative h-32 overflow-hidden" style="background:linear-gradient(135deg,#${img.color}22,#${img.color}09)">
           ${shelf(img.color,'h-5',4,5)}
           <div class="absolute top-1.5 left-1.5 bg-white/90 backdrop-blur rounded px-1.5 py-0.5 text-[9px] font-mono text-gray-500">${img.id}</div>
@@ -404,8 +404,146 @@
       </div>`;
   }
 
+  // ── Detail overlay ────────────────────────────────────────────────────────
+  function showDetail(imgId) {
+    const img = ALL_IMGS.find(i => i.id === imgId);
+    if (!img) return;
+    const v = VISITS.find(x => x.id === img.visitId);
+    const scBar  = img.q >= 80 ? 'bg-green-500' : img.q >= 60 ? 'bg-amber-400' : 'bg-red-400';
+    const scText = img.q >= 80 ? 'text-green-600' : img.q >= 60 ? 'text-amber-600' : 'text-red-600';
+
+    document.getElementById('detailTitle').textContent = `${img.id} · ${img.asset}`;
+
+    document.getElementById('detailBody').innerHTML = `
+      <!-- Left: shelf + metadata -->
+      <div class="flex-1 flex flex-col border-r border-gray-100 overflow-y-auto min-w-0">
+        <div class="relative flex-shrink-0 flex items-center justify-center"
+          style="background:linear-gradient(135deg,#${img.color}22,#${img.color}0a);height:260px;">
+          <div class="w-full px-6 space-y-2 opacity-70">
+            ${[0,1,2,3].map(()=>`
+            <div class="flex gap-1.5 justify-center">
+              ${Array.from({length:6},(_,ci)=>`
+              <div class="rounded-sm flex-1 flex flex-col items-center justify-end pb-1.5"
+                style="background:#${img.color}${['44','33','55','22','44','33'][ci]};height:44px;">
+                <div class="w-1 h-3.5 rounded-full opacity-70" style="background:#${img.color}cc"></div>
+              </div>`).join('')}
+            </div>
+            <div class="h-1 bg-white/40 rounded mx-2"></div>`).join('')}
+          </div>
+          <div class="absolute top-2 right-2 bg-white/95 rounded-lg px-2 py-1 shadow-sm flex items-center gap-1.5">
+            <div class="w-2 h-2 rounded-full ${scBar}"></div>
+            <span class="text-xs font-semibold ${scText}">${img.q}%</span>
+          </div>
+        </div>
+        <div class="p-5 space-y-3">
+          <div class="grid grid-cols-2 gap-x-6 gap-y-2.5">
+            ${[['Image ID',img.id],['Visit ID',img.visitId],['Visit Date',img.date],
+               ['Store',img.store],['Asset',img.asset],['Route',v?.route||'—'],
+               ['Quality',img.q+'%']]
+              .map(([k,val])=>`<div><p class="text-xs text-gray-400">${k}</p><p class="font-medium text-gray-800 text-sm">${val}</p></div>`).join('')}
+          </div>
+          ${img.flags.length > 0 ? `
+          <div class="border-t pt-3">
+            <p class="text-xs font-semibold text-red-600 mb-2">⚑ Fraud Flags Detected</p>
+            <div class="flex flex-wrap gap-1.5">
+              ${img.flags.map(f=>`<span class="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-lg font-medium">${f}</span>`).join('')}
+            </div>
+          </div>` : `
+          <div class="border-t pt-3">
+            <p class="text-xs font-semibold text-green-600">✓ No fraud flags — image is clean</p>
+          </div>`}
+        </div>
+      </div>
+      <!-- Right: realogram -->
+      <div class="flex-1 flex flex-col overflow-y-auto min-w-0">
+        <div class="px-5 pt-4 pb-3 border-b flex-shrink-0">
+          <p class="text-sm font-semibold text-gray-700">Realogram</p>
+          <p class="text-xs text-gray-400 mt-0.5">Shelf detection · 4 rows · 6 slots</p>
+        </div>
+        <div class="p-4 flex-1">${renderRealogram(img)}</div>
+      </div>`;
+
+    document.getElementById('detailOverlay').classList.remove('hidden');
+  }
+
+  function closeDetail() {
+    document.getElementById('detailOverlay').classList.add('hidden');
+  }
+
+  function renderRealogram(img) {
+    let seed = img.id.split('').reduce((a,c) => a * 31 + c.charCodeAt(0), 0);
+    const rng = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 0x100000000; };
+    const brands = [
+      {name:"Lay's",     short:'LAY', bg:'#FEF3C7', border:'#FCD34D', text:'#92400E'},
+      {name:'Doritos',   short:'DOR', bg:'#FEE2E2', border:'#FCA5A5', text:'#991B1B'},
+      {name:'Cheetos',   short:'CHE', bg:'#FFEDD5', border:'#FDBA74', text:'#9A3412'},
+      {name:'Ruffles',   short:'RUF', bg:'#F0FDF4', border:'#86EFAC', text:'#14532D'},
+      {name:'Tostitos',  short:'TOS', bg:'#EFF6FF', border:'#93C5FD', text:'#1E3A8A'},
+      {name:'Fritos',    short:'FRI', bg:'#F5F3FF', border:'#C4B5FD', text:'#4C1D95'},
+      {name:'Pringles',  short:'PRI', bg:'#FDF4FF', border:'#E879F9', text:'#701A75'},
+      {name:'Kettle',    short:'KET', bg:'#ECFDF5', border:'#6EE7B7', text:'#064E3B'},
+      {name:"Stacy's",   short:'STA', bg:'#FFF7ED', border:'#FED7AA', text:'#7C2D12'},
+      {name:'Smartfood', short:'SMF', bg:'#F0F9FF', border:'#7DD3FC', text:'#0C4A6E'},
+      {name:'SunChips',  short:'SUN', bg:'#FEFCE8', border:'#FDE047', text:'#713F12'},
+      {name:'Popcorners',short:'POP', bg:'#FFF1F2', border:'#FDA4AF', text:'#881337'},
+    ];
+    const ROWS=4, COLS=6;
+    const rows=[];
+    for (let r=0;r<ROWS;r++) {
+      const cells=[];
+      for (let c=0;c<COLS;c++) {
+        if (rng()<0.18) {
+          cells.push(`<div class="flex items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 select-none" style="height:64px">
+            <span class="text-[10px] text-gray-300 font-mono">VOID</span></div>`);
+        } else {
+          const b=brands[Math.floor(rng()*brands.length)];
+          const conf=Math.floor(rng()*20+78);
+          cells.push(`<div class="flex flex-col items-center justify-between rounded border px-1 py-1.5 select-none"
+            style="background:${b.bg};border-color:${b.border};height:64px" title="${b.name} · ${conf}%">
+            <span class="text-xs font-bold" style="color:${b.text}">${b.short}</span>
+            <span class="text-[9px] text-center w-full truncate" style="color:${b.text};opacity:.75">${b.name}</span>
+            <span class="text-[8px] font-mono" style="color:${b.text};opacity:.6">${conf}%</span>
+          </div>`);
+        }
+      }
+      rows.push(`<div class="mb-2">
+        <div class="text-[10px] text-gray-400 font-mono mb-1">Row ${r+1}</div>
+        <div class="grid gap-1" style="grid-template-columns:repeat(${COLS},minmax(0,1fr))">${cells.join('')}</div>
+        <div class="mt-1.5 h-1.5 rounded bg-gray-200"></div>
+      </div>`);
+    }
+    return `<div>${rows.join('')}</div>
+    <div class="mt-3 border-t pt-3">
+      <p class="text-xs font-semibold text-gray-500 mb-2">Brand Legend</p>
+      <div class="flex flex-wrap gap-1.5">
+        ${brands.map(b=>`<span class="text-xs px-2 py-0.5 rounded border font-medium" style="background:${b.bg};border-color:${b.border};color:${b.text}">${b.short} ${b.name}</span>`).join('')}
+        <span class="text-xs px-2 py-0.5 rounded border border-dashed border-gray-200 bg-gray-50 text-gray-400">VOID Empty</span>
+      </div>
+    </div>`;
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   switchTab('visits');
   </script>
+
+  <!-- Image detail overlay -->
+  <div id="detailOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden"
+    onclick="if(event.target===this)closeDetail()">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 overflow-hidden flex flex-col" style="max-height:90vh">
+      <div class="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
+        <h3 id="detailTitle" class="font-semibold text-gray-800 text-lg"></h3>
+        <div class="flex items-center gap-2">
+          <button class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Download
+          </button>
+          <button onclick="closeDetail()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+      </div>
+      <div id="detailBody" class="flex overflow-hidden flex-1 min-h-0"></div>
+    </div>
+  </div>
 </body>
 </html>
